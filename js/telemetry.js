@@ -7,9 +7,11 @@
   const SESSION_ACTIVITY_KEY = 'scv_analytics_last_activity';
   const STARTED_KEY = 'scv_analytics_game_started';
   const SESSION_IDLE_MS = 30 * 60 * 1000;
+  const HEARTBEAT_INTERVAL_MS = 60 * 1000;
   const PAGE_NAMES = { 'game.html': 'game' };
   let consentPromptShown = false;
   let gameStartRequest = null;
+  let presenceTimer = null;
 
   if (typeof endpoint !== 'string' || !endpoint.trim()) return;
 
@@ -90,6 +92,29 @@
     send('page_view', { page: currentPage() });
   }
 
+  function refreshPresence() {
+    if (!isConsented()) return;
+    const stage = currentPage() === 'game' && typeof window.SCVGameCurrentStage === 'function'
+      ? window.SCVGameCurrentStage()
+      : null;
+    send('heartbeat', {
+      page: currentPage(),
+      act_id: stage?.actId || null,
+      location_id: stage?.locationId || null,
+    });
+  }
+
+  function startPresenceUpdates() {
+    if (presenceTimer) return;
+    refreshPresence();
+    presenceTimer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshPresence();
+    }, HEARTBEAT_INTERVAL_MS);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refreshPresence();
+    });
+  }
+
   function trackGameStart(difficulty) {
     if (!isConsented()) return Promise.resolve(false);
     const sessionId = getSessionId();
@@ -130,7 +155,7 @@
     panel.innerHTML = `
       <div class="scv-telemetry-copy">
         <strong id="scv-telemetry-title">Помогите улучшить игру</strong>
-        <p>Можно отправлять сведения без имени: посещения, этапы прохождения и типы технических ошибок. Ответы и текст ошибок не отправляются. Случайный ID связывает визиты только в этом браузере. Отказ не влияет на игру.</p>
+        <p>Можно отправлять сведения без имени: посещения, этапы прохождения, активность открытой вкладки и типы технических ошибок. Ответы и текст ошибок не отправляются. Случайный ID связывает визиты только в этом браузере. Отказ не влияет на игру.</p>
       </div>
       <div class="scv-telemetry-actions">
         <button type="button" data-telemetry-action="allow">Разрешить</button>
@@ -141,8 +166,10 @@
       localStorage.setItem(CONSENT_KEY, 'yes');
       closeConsentPanel();
       trackPageView();
+      startPresenceUpdates();
       if (currentPage() === 'game' && window.SCVGameReady && typeof window.SCVGameDifficulty === 'function') {
         window.SCVTelemetry.trackGameStart(window.SCVGameDifficulty());
+        refreshPresence();
       }
     });
     panel.querySelector('[data-telemetry-action="deny"]').addEventListener('click', () => {
@@ -180,6 +207,9 @@
   window.SCVTelemetry = {
     trackPageView,
     trackGameStart,
+    trackStage() {
+      refreshPresence();
+    },
     trackQuizCompleted(quizId, score) {
       send('quiz_completed', { quiz_id: quizId, score });
     },
@@ -201,6 +231,7 @@
     if (isConsented()) {
       closeConsentPanel();
       trackPageView();
+      startPresenceUpdates();
     } else if (localStorage.getItem(CONSENT_KEY) !== 'no' && !consentPromptShown) {
       showConsentPanel();
     } else {

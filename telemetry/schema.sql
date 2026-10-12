@@ -21,7 +21,10 @@ CREATE TABLE IF NOT EXISTS sessions (
   locations_completed INTEGER NOT NULL DEFAULT 0,
   runtime_errors INTEGER NOT NULL DEFAULT 0,
   max_score INTEGER NOT NULL DEFAULT 0,
-  difficulty TEXT
+  difficulty TEXT,
+  current_page TEXT,
+  current_act TEXT,
+  current_location TEXT
 );
 
 CREATE TABLE IF NOT EXISTS events (
@@ -64,6 +67,9 @@ CREATE INDEX IF NOT EXISTS events_visitor_created_at
 
 CREATE INDEX IF NOT EXISTS sessions_last_seen
   ON sessions(last_seen);
+
+CREATE INDEX IF NOT EXISTS sessions_current_stage
+  ON sessions(current_act, current_location, last_seen);
 
 CREATE INDEX IF NOT EXISTS telegram_notifications_status
   ON telegram_notifications(status, created_at);

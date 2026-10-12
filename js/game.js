@@ -42,6 +42,10 @@ let state = {
   previousScreen: 'game',
 };
 window.SCVGameDifficulty = () => state.difficulty;
+window.SCVGameCurrentStage = () => ({
+  actId: state.currentLocation?.actId || null,
+  locationId: state.currentLocation?.id || null,
+});
 window.SCVGameReady = false;
 
 // ─── Save / Load ──────────────────────────────────────────────────────────────
@@ -271,6 +275,7 @@ function startPrologue() {
   state.currentDialogue = p.dialogue;
   state.currentDialogueId = p.dialogue[0].id;
   state.currentLocation = { id: 'prologue', title: p.title, actId: 'prologue' };
+  window.SCVTelemetry?.trackStage();
   state.dialogueHistory = [];
   document.getElementById('location-title').textContent = '';
   setGameBg(p.background);
@@ -1196,6 +1201,7 @@ function startLocation(actId, locId) {
   const loc = act?.locations.find(l => l.id === locId);
   if (!loc) return;
   state.currentLocation = { ...loc, actId };
+  window.SCVTelemetry?.trackStage();
   state.currentDialogue = loc.dialogue;
   state.currentDialogueId = loc.dialogue[0].id;
   state.dialogueHistory = [];
@@ -1424,6 +1430,7 @@ async function init() {
     showActSplash('Пролог', 'Слово через века', 'Начало путешествия', startPrologue);
   }
 
+  window.SCVTelemetry?.trackStage();
   lucide.createIcons();
 }
 

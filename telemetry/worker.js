@@ -8,6 +8,40 @@ const EVENT_TYPES = new Set([
 ]);
 const DIFFICULTIES = new Set(['novice', 'explorer', 'keeper']);
 const ERROR_TYPES = new Set(['Error', 'TypeError', 'ReferenceError', 'SyntaxError', 'RangeError']);
+const STAGE_LABELS = {
+  prologue: 'Пролог: Кладовка',
+  scriptorium: 'Скрипторий',
+  birch_grove: 'Берёзовая роща',
+  church: 'Церковь Кириллицы',
+  courtyard: 'Монастырский двор',
+  bell_tower: 'Колокольня',
+  market: 'Торговая площадь',
+  river_dock: 'Речная пристань',
+};
+const ACT_LABELS = {
+  act1: 'Акт I: Древняя Русь',
+  act2: 'Акт II: Печатный век',
+  act3: 'Акт III: Золотой век литературы',
+  act4: 'Акт IV: Язык народов и диалекты',
+  act5: 'Акт V: Современность',
+};
+const DASHBOARD_KEYBOARD = {
+  inline_keyboard: [
+    [
+      { text: '📊 Сводка', callback_data: 'scv:overview' },
+      { text: '🟢 Онлайн', callback_data: 'scv:online' },
+    ],
+    [
+      { text: '🗺 Этапы', callback_data: 'scv:stages' },
+      { text: '🎚 Сложность', callback_data: 'scv:difficulty' },
+    ],
+    [
+      { text: '👥 Игроки', callback_data: 'scv:users' },
+      { text: '⚠️ Ошибки', callback_data: 'scv:errors' },
+    ],
+    [{ text: '🔄 Обновить', callback_data: 'scv:overview' }],
+  ],
+};
 
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
@@ -32,7 +66,14 @@ function safeMetadata(type, raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const result = {};
 
-  if (type === 'page_view') {
+  if (type === 'heartbeat') {
+    if (!['landing', 'game'].includes(raw.page)) return null;
+    if (raw.act_id != null && !/^prologue$|^act[1-5]$/.test(raw.act_id)) return null;
+    if (raw.location_id != null && !/^[a-z0-9_-]{1,64}$/i.test(raw.location_id)) return null;
+    result.page = raw.page;
+    result.act_id = raw.act_id || null;
+    result.location_id = raw.location_id || null;
+  } else if (type === 'page_view') {
     if (!['landing', 'game'].includes(raw.page)) return null;
     result.page = raw.page;
   } else if (type === 'game_started') {
@@ -68,14 +109,18 @@ async function readJson(request, maxBytes) {
 }
 
 async function sendTelegram(env, text) {
-  const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+  return Boolean(await telegramApi(env, 'sendMessage', {
+    chat_id: env.TELEGRAM_ADMIN_ID,
+    text,
+    disable_web_page_preview: true,
+  }));
+}
+
+async function telegramApi(env, method, payload) {
+  const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: env.TELEGRAM_ADMIN_ID,
-      text,
-      disable_web_page_preview: true,
-    }),
+    body: JSON.stringify(payload),
   });
   if (!response.ok) {
     console.error('Telegram notification failed with HTTP status:', response.status);
@@ -83,10 +128,10 @@ async function sendTelegram(env, text) {
   }
   const result = await response.json();
   if (!result.ok) {
-    console.error('Telegram notification was rejected by Telegram.');
+    console.error('Telegram API call was rejected:', method);
     return false;
   }
-  return true;
+  return result;
 }
 
 async function deliverGameStartNotification(env, sessionId) {
@@ -135,7 +180,7 @@ async function handleEvent(request, env) {
     || !UUID_PATTERN.test(payload.visitor_id)
     || typeof payload.session_id !== 'string'
     || !UUID_PATTERN.test(payload.session_id)
-    || !EVENT_TYPES.has(payload.type)) {
+    || (!EVENT_TYPES.has(payload.type) && payload.type !== 'heartbeat')) {
     return json({ error: 'invalid_event' }, 400, headers);
   }
 
@@ -146,6 +191,20 @@ async function handleEvent(request, env) {
   const visitorId = payload.visitor_id.toLowerCase();
   const sessionId = payload.session_id.toLowerCase();
   const eventId = payload.event_id.toLowerCase();
+
+  if (payload.type === 'heartbeat') {
+    const existingSession = await env.DB.prepare(
+      `SELECT last_seen, current_page, current_act, current_location
+       FROM sessions WHERE session_id = ? AND visitor_id = ?`,
+    ).bind(sessionId, visitorId).first();
+    if (existingSession
+      && existingSession.current_page === metadata.page
+      && existingSession.current_act === metadata.act_id
+      && existingSession.current_location === metadata.location_id
+      && Date.now() - Date.parse(existingSession.last_seen) < 45000) {
+      return json({ ok: true, throttled: true }, 200, headers);
+    }
+  }
 
   const recent = await env.DB.prepare(
     `SELECT COUNT(*) AS count FROM events
@@ -164,6 +223,14 @@ async function handleEvent(request, env) {
      VALUES(?, ?, ?, ?)
      ON CONFLICT(session_id) DO UPDATE SET last_seen = excluded.last_seen`,
   ).bind(sessionId, visitorId, now, now).run();
+
+  if (payload.type === 'heartbeat') {
+    await env.DB.prepare(
+      `UPDATE sessions SET current_page = ?, current_act = ?, current_location = ?
+       WHERE session_id = ? AND visitor_id = ?`,
+    ).bind(metadata.page, metadata.act_id, metadata.location_id, sessionId, visitorId).run();
+    return json({ ok: true }, 200, headers);
+  }
 
   const inserted = await env.DB.prepare(
     `INSERT OR IGNORE INTO events(event_id, visitor_id, session_id, event_type, created_at, metadata_json)
@@ -207,6 +274,11 @@ async function handleEvent(request, env) {
     sessionId,
     visitorId,
   ).run();
+  if (payload.type === 'page_view') {
+    await env.DB.prepare(
+      `UPDATE sessions SET current_page = ? WHERE session_id = ? AND visitor_id = ?`,
+    ).bind(metadata.page, sessionId, visitorId).run();
+  }
 
   if (payload.type === 'game_started') {
     await env.DB.prepare(
@@ -245,99 +317,112 @@ async function handleForget(request, env) {
   return json({ ok: true }, 200, headers);
 }
 
-async function telegramMessage(env, message) {
-  if (!message || message.chat?.type !== 'private' || !message.from || !message.text) return;
-  if (String(message.from.id) !== String(env.TELEGRAM_ADMIN_ID)
-    || String(message.chat.id) !== String(env.TELEGRAM_ADMIN_ID)) return;
+function formatStage(actId, locationId) {
+  if (!locationId) return 'не выбран';
+  const label = STAGE_LABELS[locationId] || locationId;
+  if (actId === 'prologue' || locationId === 'prologue') return label;
+  return `${ACT_LABELS[actId] || actId || 'Акт не указан'} · ${label}`;
+}
 
-  const [command, argument] = message.text.trim().split(/\s+/, 2);
-  let text = 'Команды: /stats, /users, /user <ID игрока>, /errors';
-
-  if (command === '/stats') {
-    const [totals, allSessions, recent, recentStarts, errors] = await Promise.all([
+async function renderDashboard(env, view) {
+  if (view === 'online') {
+    const [active, { results }] = await Promise.all([
       env.DB.prepare(
-        `SELECT COUNT(*) AS users, COALESCE(SUM(page_views), 0) AS page_views,
-         COALESCE(SUM(game_starts), 0) AS game_starts,
-         COALESCE(SUM(quizzes_completed), 0) AS quizzes,
-         COALESCE(SUM(locations_completed), 0) AS locations,
-         COALESCE(SUM(runtime_errors), 0) AS errors FROM visitors`,
-      ).first(),
-      env.DB.prepare('SELECT COUNT(*) AS count FROM sessions').first(),
-      env.DB.prepare(
-        `SELECT COUNT(*) AS users FROM visitors
-         WHERE datetime(last_seen) >= datetime('now', '-1 day')`,
+        `SELECT COUNT(DISTINCT visitor_id) AS players, COUNT(*) AS sessions
+         FROM sessions WHERE datetime(last_seen) >= datetime('now', '-2 minutes')`,
       ).first(),
       env.DB.prepare(
-        `SELECT COUNT(*) AS count FROM events
-         WHERE event_type = 'game_started' AND datetime(created_at) >= datetime('now', '-1 day')`,
-      ).first(),
-      env.DB.prepare(
-        `SELECT COUNT(*) AS count FROM events
-         WHERE event_type = 'runtime_error' AND datetime(created_at) >= datetime('now', '-1 day')`,
-      ).first(),
+        `SELECT visitor_id, current_page, current_act, current_location, last_seen, difficulty
+         FROM sessions WHERE datetime(last_seen) >= datetime('now', '-2 minutes')
+         ORDER BY last_seen DESC LIMIT 12`,
+      ).all(),
     ]);
-    text = [
-      'Статистика проекта',
-      `Анонимных браузеров: ${totals.users}`,
-      `Просмотров страниц: ${totals.page_views}`,
-      `Сессий: ${allSessions.count}`,
-      `Запусков игры: ${totals.game_starts}`,
-      `Завершённых заданий: ${totals.quizzes}`,
-      `Завершённых локаций: ${totals.locations}`,
-      `Ошибок за 24 часа: ${errors.count}`,
-      `Активных игроков за 24 часа: ${recent.users}`,
-      `Запусков игры за 24 часа: ${recentStarts.count}`,
+    return [
+      '🟢 Активность сайта',
+      `Активных браузеров за 2 минуты: ${active.players}`,
+      `Активных вкладок: ${active.sessions}`,
+      'Это оценка онлайна по сигналам активной вкладки; точный список зависит от согласия на аналитику.',
+      '',
+      ...(results.length ? results.map(session =>
+        `${session.visitor_id.slice(0, 8)} · ${session.current_page === 'game' ? 'игра' : 'сайт'} · ${formatStage(session.current_act, session.current_location)} · ${session.difficulty || 'сложность не выбрана'}`,
+      ) : ['Сейчас активных посетителей не видно.']),
     ].join('\n');
-  } else if (command === '/users') {
+  }
+
+  if (view === 'stages') {
+    const [active, completed] = await Promise.all([
+      env.DB.prepare(
+        `SELECT current_location, COUNT(DISTINCT visitor_id) AS players
+         FROM sessions WHERE datetime(last_seen) >= datetime('now', '-2 minutes')
+         AND current_location IS NOT NULL GROUP BY current_location`,
+      ).all(),
+      env.DB.prepare(
+        `SELECT json_extract(metadata_json, '$.location_id') AS location_id, COUNT(*) AS completed
+         FROM events WHERE event_type = 'location_completed'
+         GROUP BY json_extract(metadata_json, '$.location_id')`,
+      ).all(),
+    ]);
+    const activeByStage = new Map(active.results.map(row => [row.current_location, row.players]));
+    const completedByStage = new Map(completed.results.map(row => [row.location_id, row.completed]));
+    const stages = Object.entries(STAGE_LABELS).map(([id, label]) =>
+      `${label} · завершили ${completedByStage.get(id) || 0} · сейчас ${activeByStage.get(id) || 0}`,
+    );
+    return [
+      '🗺 Этапы прохождения',
+      'Завершили — число событий завершения. Сейчас — активные браузеры, у которых открыт этап.',
+      '',
+      ...stages,
+    ].join('\n');
+  }
+
+  if (view === 'difficulty') {
+    const [{ results }, active] = await Promise.all([
+      env.DB.prepare(
+        `SELECT difficulty, COUNT(*) AS sessions FROM sessions
+         WHERE game_started = 1 GROUP BY difficulty`,
+      ).all(),
+      env.DB.prepare(
+        `SELECT difficulty, COUNT(DISTINCT visitor_id) AS players FROM sessions
+         WHERE game_started = 1 AND datetime(last_seen) >= datetime('now', '-2 minutes')
+         GROUP BY difficulty`,
+      ).all(),
+    ]);
+    const labels = {
+      novice: 'Первопроходец',
+      explorer: 'Исследователь',
+      keeper: 'Хранитель',
+    };
+    const total = new Map(results.map(row => [row.difficulty, row.sessions]));
+    const online = new Map(active.results.map(row => [row.difficulty, row.players]));
+    return [
+      '🎚 Сложность игры',
+      ...Object.entries(labels).map(([id, label]) =>
+        `${label} · запусков ${total.get(id) || 0} · активны ${online.get(id) || 0}`,
+      ),
+    ].join('\n');
+  }
+
+  if (view === 'users') {
     const { results } = await env.DB.prepare(
       `SELECT visitor_id, first_seen, last_seen, game_starts, quizzes_completed,
        locations_completed, runtime_errors, max_score
        FROM visitors ORDER BY last_seen DESC LIMIT 10`,
     ).all();
-    text = results.length
-      ? ['Недавно активные (ID — первые 8 символов):', ...results.map(user =>
+    return results.length
+      ? ['👥 Последние активные браузеры (ID — первые 8 символов):', ...results.map(user =>
         `${user.visitor_id.slice(0, 8)} · запусков ${user.game_starts} · заданий ${user.quizzes_completed} · локаций ${user.locations_completed} · ошибок ${user.runtime_errors} · баллы ${user.max_score}`,
       )].join('\n')
       : 'Пока нет игроков с согласием на статистику.';
-  } else if (command === '/user') {
-    if (!argument || !/^[0-9a-f-]{4,36}$/i.test(argument)) {
-      text = 'Укажи ID из /users, например: /user 1234abcd';
-    } else {
-      const user = await env.DB.prepare(
-        `SELECT visitor_id, first_seen, last_seen, page_views, game_starts,
-         quizzes_completed, locations_completed, runtime_errors, max_score
-         FROM visitors WHERE visitor_id LIKE ? LIMIT 1`,
-      ).bind(`${argument.toLowerCase()}%`).first();
-      if (!user) {
-        text = 'Игрок с таким ID не найден.';
-      } else {
-        const { results } = await env.DB.prepare(
-          `SELECT session_id, started_at, last_seen, game_started, page_views,
-           quizzes_completed, locations_completed, runtime_errors, max_score, difficulty
-           FROM sessions WHERE visitor_id = ? ORDER BY last_seen DESC LIMIT 10`,
-        ).bind(user.visitor_id).all();
-        text = [
-          `Игрок ${user.visitor_id}`,
-          `Первый визит: ${user.first_seen} UTC`,
-          `Последняя активность: ${user.last_seen} UTC`,
-          `Просмотров: ${user.page_views}; запусков: ${user.game_starts}`,
-          `Заданий: ${user.quizzes_completed}; локаций: ${user.locations_completed}`,
-          `Ошибок: ${user.runtime_errors}; максимальный счёт: ${user.max_score}`,
-          'Последние сессии:',
-          ...results.map(session =>
-            `${session.session_id.slice(0, 8)} · ${session.started_at} · ${session.difficulty || 'не выбрана'} · заданий ${session.quizzes_completed} · ошибок ${session.runtime_errors}`,
-          ),
-        ].join('\n');
-      }
-    }
-  } else if (command === '/errors') {
+  }
+
+  if (view === 'errors') {
     const { results } = await env.DB.prepare(
-      `SELECT visitor_id, session_id, created_at, metadata_json
+      `SELECT visitor_id, created_at, metadata_json
        FROM events WHERE event_type = 'runtime_error'
        ORDER BY created_at DESC LIMIT 10`,
     ).all();
-    text = results.length
-      ? ['Последние ошибки (сохраняется только тип, без текста или стека):',
+    return results.length
+      ? ['⚠️ Последние ошибки (сохраняется только тип, без текста и стека):',
         ...results.map(row => {
           const metadata = JSON.parse(row.metadata_json);
           return `${row.created_at} UTC · игрок ${row.visitor_id.slice(0, 8)} · ${metadata.error_type}`;
@@ -345,7 +430,128 @@ async function telegramMessage(env, message) {
       : 'Ошибок пока нет.';
   }
 
-  await sendTelegram(env, text.slice(0, 3900));
+  const [totals, sessions, active, recent, recentStarts, recentErrors] = await Promise.all([
+    env.DB.prepare(
+      `SELECT COUNT(*) AS users, COALESCE(SUM(page_views), 0) AS page_views,
+       COALESCE(SUM(game_starts), 0) AS game_starts,
+       COALESCE(SUM(quizzes_completed), 0) AS quizzes,
+       COALESCE(SUM(locations_completed), 0) AS locations
+       FROM visitors`,
+    ).first(),
+    env.DB.prepare('SELECT COUNT(*) AS count FROM sessions').first(),
+    env.DB.prepare(
+      `SELECT COUNT(DISTINCT visitor_id) AS players, COUNT(*) AS sessions,
+       COUNT(DISTINCT CASE WHEN current_page = 'game' THEN visitor_id END) AS in_game
+       FROM sessions WHERE datetime(last_seen) >= datetime('now', '-2 minutes')`,
+    ).first(),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS users FROM visitors
+       WHERE datetime(last_seen) >= datetime('now', '-1 day')`,
+    ).first(),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS count FROM events
+       WHERE event_type = 'game_started' AND datetime(created_at) >= datetime('now', '-1 day')`,
+    ).first(),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS count FROM events
+       WHERE event_type = 'runtime_error' AND datetime(created_at) >= datetime('now', '-1 day')`,
+    ).first(),
+  ]);
+  return [
+    '📊 Админ-панель «Слово через века»',
+    `🟢 Сейчас активны: ${active.players} браузеров (${active.in_game} в игре), ${active.sessions} вкладок`,
+    `👀 Активных браузеров за 24 часа: ${recent.users}`,
+    '',
+    `🌐 Всего браузеров: ${totals.users}`,
+    `Просмотров страниц: ${totals.page_views} · сессий: ${sessions.count}`,
+    `🎮 Запусков игры: ${totals.game_starts} (за 24 ч: ${recentStarts.count})`,
+    `Заданий завершено: ${totals.quizzes} · локаций: ${totals.locations}`,
+    `⚠️ Ошибок за 24 часа: ${recentErrors.count}`,
+    '',
+    'Для детализации выбери раздел кнопками ниже.',
+  ].join('\n');
+}
+
+async function renderUser(env, argument) {
+  if (!argument || !/^[0-9a-f-]{4,36}$/i.test(argument)) {
+    return 'Укажи начало ID игрока из раздела «Игроки», например: /user 1234abcd';
+  }
+  const user = await env.DB.prepare(
+    `SELECT visitor_id, first_seen, last_seen, page_views, game_starts,
+     quizzes_completed, locations_completed, runtime_errors, max_score
+     FROM visitors WHERE visitor_id LIKE ? LIMIT 1`,
+  ).bind(`${argument.toLowerCase()}%`).first();
+  if (!user) return 'Игрок с таким ID не найден.';
+
+  const { results } = await env.DB.prepare(
+    `SELECT session_id, started_at, last_seen, game_started, page_views,
+     quizzes_completed, locations_completed, runtime_errors, max_score, difficulty,
+     current_act, current_location
+     FROM sessions WHERE visitor_id = ? ORDER BY last_seen DESC LIMIT 10`,
+  ).bind(user.visitor_id).all();
+  return [
+    `Игрок ${user.visitor_id}`,
+    `Первый визит: ${user.first_seen} UTC`,
+    `Последняя активность: ${user.last_seen} UTC`,
+    `Просмотров: ${user.page_views}; запусков: ${user.game_starts}`,
+    `Заданий: ${user.quizzes_completed}; локаций: ${user.locations_completed}`,
+    `Ошибок: ${user.runtime_errors}; максимальный счёт: ${user.max_score}`,
+    'Последние сессии:',
+    ...results.map(session =>
+      `${session.session_id.slice(0, 8)} · ${session.started_at} · ${session.difficulty || 'не выбрана'} · ${formatStage(session.current_act, session.current_location)} · заданий ${session.quizzes_completed} · ошибок ${session.runtime_errors}`,
+    ),
+  ].join('\n');
+}
+
+function isAdminPrivateChat(env, user, chat) {
+  return chat?.type === 'private'
+    && user
+    && String(user.id) === String(env.TELEGRAM_ADMIN_ID)
+    && String(chat.id) === String(env.TELEGRAM_ADMIN_ID);
+}
+
+async function telegramMessage(env, message) {
+  if (!message?.text || !isAdminPrivateChat(env, message.from, message.chat)) return;
+  const [rawCommand, argument] = message.text.trim().split(/\s+/, 2);
+  const command = rawCommand.split('@')[0];
+  let text;
+  if (command === '/stats' || command === '/menu' || command === '/start') {
+    text = await renderDashboard(env, 'overview');
+  } else if (command === '/users') {
+    text = await renderDashboard(env, 'users');
+  } else if (command === '/user') {
+    text = await renderUser(env, argument);
+  } else if (command === '/errors') {
+    text = await renderDashboard(env, 'errors');
+  } else {
+    text = 'Админ-панель: /stats или /menu. Также доступны /users, /user <ID>, /errors.';
+  }
+
+  const result = await telegramApi(env, 'sendMessage', {
+    chat_id: env.TELEGRAM_ADMIN_ID,
+    text: text.slice(0, 3900),
+    disable_web_page_preview: true,
+    reply_markup: DASHBOARD_KEYBOARD,
+  });
+  return Boolean(result);
+}
+
+async function telegramCallback(env, callback) {
+  const message = callback?.message;
+  if (!callback?.id || !message || !isAdminPrivateChat(env, callback.from, message.chat)) return;
+  const view = callback.data?.startsWith('scv:') ? callback.data.slice(4) : '';
+  const allowedViews = new Set(['overview', 'online', 'stages', 'difficulty', 'users', 'errors']);
+  if (!allowedViews.has(view)) return;
+
+  await telegramApi(env, 'answerCallbackQuery', { callback_query_id: callback.id });
+  const text = await renderDashboard(env, view);
+  await telegramApi(env, 'editMessageText', {
+    chat_id: env.TELEGRAM_ADMIN_ID,
+    message_id: message.message_id,
+    text: text.slice(0, 3900),
+    disable_web_page_preview: true,
+    reply_markup: DASHBOARD_KEYBOARD,
+  });
 }
 
 async function handleTelegram(request, env) {
@@ -356,7 +562,8 @@ async function handleTelegram(request, env) {
   const update = await readJson(request, 32768);
   if (!update) return new Response('Bad Request', { status: 400 });
   try {
-    await telegramMessage(env, update.message);
+    if (update.callback_query) await telegramCallback(env, update.callback_query);
+    else await telegramMessage(env, update.message);
   } catch (error) {
     console.error('Telegram command failed:', error instanceof Error ? error.name : 'unknown error');
     return new Response('Temporary failure', { status: 500 });
