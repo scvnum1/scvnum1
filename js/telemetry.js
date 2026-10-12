@@ -1,15 +1,13 @@
 (() => {
   const endpoint = window.SCV_TELEMETRY_ENDPOINT;
-  const FORGET_ENDPOINT = endpoint ? endpoint.replace(/\/api\/events\/?$/, '/api/forget') : '';
-  const CONSENT_KEY = 'scv_analytics_consent';
   const VISITOR_KEY = 'scv_analytics_visitor';
   const SESSION_KEY = 'scv_analytics_session';
   const SESSION_ACTIVITY_KEY = 'scv_analytics_last_activity';
   const STARTED_KEY = 'scv_analytics_game_started';
+  const NOTICE_DISMISSED_KEY = 'scv_telemetry_notice_dismissed';
   const SESSION_IDLE_MS = 30 * 60 * 1000;
   const HEARTBEAT_INTERVAL_MS = 60 * 1000;
   const PAGE_NAMES = { 'game.html': 'game' };
-  let consentPromptShown = false;
   let gameStartRequest = null;
   let presenceTimer = null;
 
@@ -50,12 +48,7 @@
     return id;
   }
 
-  function isConsented() {
-    return localStorage.getItem(CONSENT_KEY) === 'yes';
-  }
-
   function send(type, metadata = {}) {
-    if (!isConsented()) return Promise.resolve(false);
     const visitorId = getOrCreate(localStorage, VISITOR_KEY);
     const sessionId = getSessionId();
     const eventId = createId();
@@ -93,7 +86,6 @@
   }
 
   function refreshPresence() {
-    if (!isConsented()) return;
     const stage = currentPage() === 'game' && typeof window.SCVGameCurrentStage === 'function'
       ? window.SCVGameCurrentStage()
       : null;
@@ -116,7 +108,6 @@
   }
 
   function trackGameStart(difficulty) {
-    if (!isConsented()) return Promise.resolve(false);
     const sessionId = getSessionId();
     if (!sessionId || sessionStorage.getItem(STARTED_KEY) === sessionId) return Promise.resolve(false);
     if (gameStartRequest) return gameStartRequest;
@@ -128,78 +119,39 @@
     return gameStartRequest;
   }
 
-  function removeConsentPanel() {
+  function removeNotice() {
     document.getElementById('scv-telemetry-consent')?.remove();
   }
 
-  function closeConsentPanel() {
-    removeConsentPanel();
+  function dismissNotice() {
+    removeNotice();
+    sessionStorage.setItem(NOTICE_DISMISSED_KEY, 'yes');
     if (document.getElementById('scv-telemetry-settings')) return;
     const settings = document.createElement('button');
     settings.id = 'scv-telemetry-settings';
     settings.className = 'scv-telemetry-settings';
     settings.type = 'button';
-    settings.textContent = 'Настройки приватности';
-    settings.addEventListener('click', showConsentPanel);
+    settings.textContent = 'О сборе данных';
+    settings.addEventListener('click', showTelemetryNotice);
     document.body.appendChild(settings);
   }
 
-  function showConsentPanel() {
-    removeConsentPanel();
-    consentPromptShown = true;
+  function showTelemetryNotice() {
+    removeNotice();
     const panel = document.createElement('section');
     panel.id = 'scv-telemetry-consent';
     panel.className = 'scv-telemetry-consent';
-    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('role', 'status');
     panel.setAttribute('aria-labelledby', 'scv-telemetry-title');
     panel.innerHTML = `
       <div class="scv-telemetry-copy">
-        <strong id="scv-telemetry-title">Помогите улучшить игру</strong>
-        <p>Можно отправлять сведения без имени: посещения, этапы прохождения, активность открытой вкладки и типы технических ошибок. Ответы и текст ошибок не отправляются. Случайный ID связывает визиты только в этом браузере. Отказ не влияет на игру.</p>
+        <strong id="scv-telemetry-title">Анонимная статистика работы игры</strong>
+        <p>Сайт автоматически собирает просмотры страниц, сложность, этапы и результаты заданий, типы технических ошибок и активность видимой вкладки. Случайный ID связывает статистику посещений в этом браузере, но не содержит имени. Ответы и текст ошибок не сохраняются. IP не записывается в таблицы телеметрии; Cloudflare может обрабатывать технические данные запросов. События и сессии удаляются примерно через 180 дней, а профиль браузера — после 180 дней без новых посещений. Сбор нужен для статистики и не отключается через игру.</p>
       </div>
       <div class="scv-telemetry-actions">
-        <button type="button" data-telemetry-action="allow">Разрешить</button>
-        <button type="button" data-telemetry-action="deny">Не сейчас</button>
-        <button type="button" data-telemetry-action="forget">Удалить мои данные</button>
+        <button type="button" data-telemetry-action="close">Понятно</button>
       </div>`;
-    panel.querySelector('[data-telemetry-action="allow"]').addEventListener('click', () => {
-      localStorage.setItem(CONSENT_KEY, 'yes');
-      closeConsentPanel();
-      trackPageView();
-      startPresenceUpdates();
-      if (currentPage() === 'game' && window.SCVGameReady && typeof window.SCVGameDifficulty === 'function') {
-        window.SCVTelemetry.trackGameStart(window.SCVGameDifficulty());
-        refreshPresence();
-      }
-    });
-    panel.querySelector('[data-telemetry-action="deny"]').addEventListener('click', () => {
-      localStorage.setItem(CONSENT_KEY, 'no');
-      closeConsentPanel();
-    });
-    panel.querySelector('[data-telemetry-action="forget"]').addEventListener('click', async () => {
-      const visitorId = localStorage.getItem(VISITOR_KEY);
-      try {
-        if (visitorId) {
-          const response = await fetch(FORGET_ENDPOINT, {
-            method: 'POST',
-            mode: 'cors',
-            credentials: 'omit',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ visitor_id: visitorId }),
-          });
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        }
-        localStorage.removeItem(VISITOR_KEY);
-        localStorage.removeItem(CONSENT_KEY);
-        sessionStorage.removeItem(SESSION_KEY);
-        sessionStorage.removeItem(SESSION_ACTIVITY_KEY);
-        sessionStorage.removeItem(STARTED_KEY);
-        localStorage.setItem(CONSENT_KEY, 'no');
-        closeConsentPanel();
-      } catch (error) {
-        console.error('Could not delete anonymous analytics data:', error instanceof Error ? error.message : 'request failed');
-      }
-    });
+    panel.querySelector('[data-telemetry-action="close"]').addEventListener('click', dismissNotice);
     document.body.appendChild(panel);
     document.getElementById('scv-telemetry-settings')?.remove();
   }
@@ -228,15 +180,11 @@
   window.addEventListener('unhandledrejection', event => reportRuntimeError(event.reason));
 
   function initialize() {
-    if (isConsented()) {
-      closeConsentPanel();
-      trackPageView();
-      startPresenceUpdates();
-    } else if (localStorage.getItem(CONSENT_KEY) !== 'no' && !consentPromptShown) {
-      showConsentPanel();
-    } else {
-      closeConsentPanel();
-    }
+    localStorage.removeItem('scv_analytics_consent');
+    trackPageView();
+    startPresenceUpdates();
+    if (sessionStorage.getItem(NOTICE_DISMISSED_KEY) !== 'yes') showTelemetryNotice();
+    else dismissNotice();
   }
 
   if (document.readyState === 'loading') {

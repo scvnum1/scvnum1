@@ -340,11 +340,11 @@ async function renderDashboard(env, view) {
     return [
       '🟢 Активность сайта',
       `Активных браузеров за 2 минуты: ${active.players}`,
-      `Активных вкладок: ${active.sessions}`,
-      'Это оценка онлайна по сигналам активной вкладки; точный список зависит от согласия на аналитику.',
+      `Активных сессий вкладок: ${active.sessions}`,
+      'Онлайн — оценка по сигналам видимых вкладок; посетитель определяется случайным ID этого браузера.',
       '',
       ...(results.length ? results.map(session =>
-        `${session.visitor_id.slice(0, 8)} · ${session.current_page === 'game' ? 'игра' : 'сайт'} · ${formatStage(session.current_act, session.current_location)} · ${session.difficulty || 'сложность не выбрана'}`,
+        `${session.visitor_id.slice(0, 8)} · ${session.current_page === 'game' ? 'Игра' : 'Сайт'} · ${formatStage(session.current_act, session.current_location)} · ${session.difficulty || 'сложность не выбрана'}`,
       ) : ['Сейчас активных посетителей не видно.']),
     ].join('\n');
   }
@@ -412,7 +412,7 @@ async function renderDashboard(env, view) {
       ? ['👥 Последние активные браузеры (ID — первые 8 символов):', ...results.map(user =>
         `${user.visitor_id.slice(0, 8)} · запусков ${user.game_starts} · заданий ${user.quizzes_completed} · локаций ${user.locations_completed} · ошибок ${user.runtime_errors} · баллы ${user.max_score}`,
       )].join('\n')
-      : 'Пока нет игроков с согласием на статистику.';
+      : 'Пока нет данных о посетителях.';
   }
 
   if (view === 'errors') {
@@ -462,7 +462,7 @@ async function renderDashboard(env, view) {
     `🟢 Сейчас активны: ${active.players} браузеров (${active.in_game} в игре), ${active.sessions} вкладок`,
     `👀 Активных браузеров за 24 часа: ${recent.users}`,
     '',
-    `🌐 Всего браузеров: ${totals.users}`,
+    `🌐 Анонимных браузеров: ${totals.users}`,
     `Просмотров страниц: ${totals.page_views} · сессий: ${sessions.count}`,
     `🎮 Запусков игры: ${totals.game_starts} (за 24 ч: ${recentStarts.count})`,
     `Заданий завершено: ${totals.quizzes} · локаций: ${totals.locations}`,
@@ -582,12 +582,19 @@ export default {
   },
   async scheduled(_event, env, ctx) {
     ctx.waitUntil(
-      Promise.all([
-        env.DB.prepare(`DELETE FROM events WHERE datetime(created_at) < datetime('now', '-180 days')`).run(),
+      env.DB.batch([
+        env.DB.prepare(`DELETE FROM events WHERE datetime(created_at) < datetime('now', '-180 days')`),
+        env.DB.prepare(`DELETE FROM telegram_notifications WHERE datetime(created_at) < datetime('now', '-180 days')`),
+        env.DB.prepare(`DELETE FROM sessions WHERE datetime(last_seen) < datetime('now', '-180 days')`),
+        env.DB.prepare(
+          `DELETE FROM visitors WHERE NOT EXISTS (
+             SELECT 1 FROM sessions WHERE sessions.visitor_id = visitors.visitor_id
+           )`,
+        ),
         env.DB.prepare(
           `UPDATE telegram_notifications SET status = 'pending'
            WHERE status = 'sending' AND datetime(last_attempt) < datetime('now', '-5 minutes')`,
-        ).run(),
+        ),
       ]).then(async () => {
         const { results } = await env.DB.prepare(
           `SELECT session_id FROM telegram_notifications
