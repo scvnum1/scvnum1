@@ -239,7 +239,9 @@ h1, h2, h3, h4 {
 
 .lp-hero-alenushka {
   flex-shrink: 0;
-  width: 270px;
+  width: 205px;
+  max-height: 38vh;
+  object-fit: contain;
   filter: drop-shadow(0 0 35px rgba(212,175,55,0.28));
   animation: float 3.8s ease-in-out infinite;
 }
@@ -2167,7 +2169,7 @@ h1, h2, h3, h4 {
     align-items: flex-start;
   }
   .lp-hero-alenushka {
-    width: 180px;
+    width: 145px;
     align-self: center;
   }
 
@@ -2224,7 +2226,7 @@ h1, h2, h3, h4 {
   .lp-hero-inner { gap: 1.5rem; }
   .lp-hero-title { font-size: clamp(1.7rem, 7vw, 2.4rem); }
   .lp-hero-sub { font-size: 0.88rem; }
-  .lp-hero-alenushka { width: 140px; }
+  .lp-hero-alenushka { width: 120px; }
   .lp-hero-actions { flex-direction: column; align-items: stretch; }
   .lp-hero-actions .btn-primary,
   .lp-hero-actions .btn-ghost { text-align: center; justify-content: center; }
