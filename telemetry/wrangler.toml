@@ -1,0 +1,15 @@
+name = "scv-telemetry"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGIN = "https://scvnum1.github.io"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "scv-telemetry"
+database_id = "c9552ce6-a3bb-4df5-9fb3-c0551c25e0bc"
+
+[triggers]
+crons = ["17 4 * * *"]

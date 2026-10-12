@@ -41,6 +41,8 @@ let state = {
   lastScreen: 'game',
   previousScreen: 'game',
 };
+window.SCVGameDifficulty = () => state.difficulty;
+window.SCVGameReady = false;
 
 // ─── Save / Load ──────────────────────────────────────────────────────────────
 function saveProgress() {
@@ -68,6 +70,17 @@ function loadProgress() {
   state._savedDialogueId = d.currentDialogueId ?? null;
   state._savedLocationId = d.currentLocationId ?? null;
   state._savedLocationActId = d.currentLocationActId ?? null;
+
+  if (state.completedLocations.includes('act1')) {
+    const act1 = gameData?.acts?.find(act => act.id === 'act1');
+    const completedCount = state.completedLocations.length;
+    act1?.locations.forEach(location => {
+      if (!state.completedLocations.includes(location.id)) {
+        state.completedLocations.push(location.id);
+      }
+    });
+    if (state.completedLocations.length !== completedCount) saveProgress();
+  }
 }
 
 function hasSave() {
@@ -152,6 +165,8 @@ function continueGame() {
 }
 
 // ─── Intro cutscene ───────────────────────────────────────────────────────────
+let introVideoPlayAttempt = null;
+
 function startIntro(playPromise) {
   showScreen('intro');
   const video = document.getElementById('intro-video');
@@ -160,7 +175,11 @@ function startIntro(playPromise) {
   let done = false;
 
   function showFallback() {
-    if (video) video.style.display = 'none';
+    if (done) return;
+    if (video) {
+      video.pause();
+      video.style.display = 'none';
+    }
     placeholder.style.display = 'flex';
     const timer = setTimeout(finish, 4500);
     skipBtn.onclick = () => { clearTimeout(timer); finish(); };
@@ -177,11 +196,29 @@ function startIntro(playPromise) {
 
   if (!video) { showFallback(); return; }
 
+  video.muted = true;
+  video.playsInline = true;
+  video.autoplay = true;
   video.onended = finish;
   video.onerror = showFallback;
 
-  const p = playPromise !== undefined ? playPromise : video.play();
-  if (p !== undefined) p.catch(showFallback);
+  const attemptPlay = () => {
+    const p = video.play();
+    if (p && typeof p.then === 'function') {
+      p.catch(showFallback);
+    }
+  };
+
+  if (playPromise && typeof playPromise.then === 'function') {
+    playPromise.catch(showFallback);
+    return;
+  }
+
+  if (video.readyState >= 2) {
+    attemptPlay();
+  } else {
+    video.addEventListener('loadeddata', attemptPlay, { once: true });
+  }
 }
 
 function launchGame() {
@@ -208,17 +245,25 @@ function showActSplash(eyebrow, title, sub, onDone) {
 }
 
 // ─── Background crossfade ─────────────────────────────────────────────────────
+let bgFadeTimer = null;
+
 function setGameBg(value) {
   const bg = document.getElementById('game-bg');
   const next = document.getElementById('game-bg-next');
+  if (!bg || !next) return;
+
   const resolved = (value && (value.startsWith('assets') || value.startsWith('alenushka'))) ? asset(value) : value;
   const css = resolved ? `url('${resolved}') center/cover no-repeat` : resolved;
-  next.style.background = css;
-  next.style.opacity = '1';
-  setTimeout(() => {
+
+  const applyNewBg = () => {
     bg.style.background = css;
     next.style.opacity = '0';
-  }, 700);
+  };
+
+  if (bgFadeTimer) clearTimeout(bgFadeTimer);
+  next.style.background = css;
+  next.style.opacity = '1';
+  bgFadeTimer = setTimeout(applyNewBg, 240);
 }
 function startPrologue() {
   if (!gameData?.prologue) { console.error('[startPrologue] gameData not ready'); return; }
@@ -355,17 +400,30 @@ function dialogueGoFirst() {
   showDialogue(firstId, true);
 }
 
+let activeTypeTimer = null;
+
 function typeText(text, onDone) {
   const el = document.getElementById('dialogue-text');
+  if (activeTypeTimer) {
+    clearInterval(activeTypeTimer);
+    activeTypeTimer = null;
+  }
   el.textContent = '';
   if (!text) { onDone?.(); return; }
   let i = 0;
-  const iv = setInterval(() => {
+  activeTypeTimer = setInterval(() => {
     el.textContent += text[i++];
-    if (i >= text.length) { clearInterval(iv); onDone?.(); }
+    if (i >= text.length) {
+      clearInterval(activeTypeTimer);
+      activeTypeTimer = null;
+      onDone?.();
+    }
   }, 22);
   el.onclick = () => {
-    clearInterval(iv);
+    if (activeTypeTimer) {
+      clearInterval(activeTypeTimer);
+      activeTypeTimer = null;
+    }
     el.textContent = text;
     el.onclick = null;
     onDone?.();
@@ -477,6 +535,9 @@ function quizDone(quiz, correct) {
     updateInventoryCount();
     saveProgress();
     checkAchievements();
+    if (typeof quiz.id === 'string') {
+      window.SCVTelemetry?.trackQuizCompleted(quiz.id, state.score);
+    }
   } else if (correct && alreadyDone) {
     updateInventoryCount();
   }
@@ -760,15 +821,21 @@ function renderOddOneOutQuiz(quiz, c) {
 function renderMatchQuiz(quiz, c) {
   const pairs = quiz.pairs;
   const shuffledModern = [...pairs].sort(() => Math.random() - 0.5);
-  let selectedAncient = null;
+  const pairColors = ['#e7b84f', '#62c6b0', '#a991e8', '#e88478', '#91bf68', '#df83ad', '#70a9d6'];
+  let selectedPairIndex = null;
   let matchedCount = 0;
   c.innerHTML = `
     <div class="quiz-eyebrow">${quiz.title}</div>
     ${quizScrollWrap(`
       <div class="quiz-question">${quiz.question}</div>
       <div class="quiz-match">
-        <div class="quiz-match-col" id="match-ancient"></div>
-        <div class="quiz-match-col" id="match-modern"></div>
+        <svg class="quiz-match-connections" aria-hidden="true"></svg>
+        <div class="quiz-match-col" id="match-ancient">
+          <div class="quiz-match-heading">Древнее слово</div>
+        </div>
+        <div class="quiz-match-col" id="match-modern">
+          <div class="quiz-match-heading">Современное значение</div>
+        </div>
       </div>
       <div class="quiz-result" id="quiz-result">
         <div class="quiz-result-icon"><i data-lucide="star" style="width:2.2rem;height:2.2rem;color:var(--gold)"></i></div>
@@ -781,32 +848,102 @@ function renderMatchQuiz(quiz, c) {
     </div>`;
   const ancientCol = document.getElementById('match-ancient');
   const modernCol  = document.getElementById('match-modern');
-  pairs.forEach(pair => {
+  const matchRoot = ancientCol.parentElement;
+  const connections = matchRoot.querySelector('.quiz-match-connections');
+  const matchedPairs = new Set();
+  const setPairTint = (element, index, alpha) => {
+    const color = pairColors[index % pairColors.length];
+    element.style.color = color;
+    element.style.borderColor = color;
+    element.style.backgroundColor = `${color}${alpha}`;
+  };
+  const clearPairTint = element => {
+    element.style.removeProperty('color');
+    element.style.removeProperty('border-color');
+    element.style.removeProperty('background-color');
+  };
+
+  const drawConnections = () => {
+    if (!matchRoot.isConnected) {
+      resizeObserver.disconnect();
+      return;
+    }
+    const rootRect = matchRoot.getBoundingClientRect();
+    connections.setAttribute('viewBox', `0 0 ${rootRect.width} ${rootRect.height}`);
+    connections.replaceChildren();
+    matchedPairs.forEach(index => {
+      const ancient = ancientCol.querySelector(`[data-pair-index="${index}"]`);
+      const modern = modernCol.querySelector(`[data-pair-index="${index}"]`);
+      if (!ancient || !modern) return;
+      const ancientRect = ancient.getBoundingClientRect();
+      const modernRect = modern.getBoundingClientRect();
+      const x1 = ancientRect.right - rootRect.left;
+      const y1 = ancientRect.top + ancientRect.height / 2 - rootRect.top;
+      const x2 = modernRect.left - rootRect.left;
+      const y2 = modernRect.top + modernRect.height / 2 - rootRect.top;
+      const bend = Math.max(18, (x2 - x1) * 0.42);
+      const color = pairColors[index % pairColors.length];
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('class', 'quiz-match-connection');
+      path.setAttribute('d', `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`);
+      path.style.setProperty('--pair-color', color);
+      connections.appendChild(path);
+      [ [x1, y1], [x2, y2] ].forEach(([x, y]) => {
+        const node = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        node.setAttribute('class', 'quiz-match-connection-node');
+        node.setAttribute('cx', x);
+        node.setAttribute('cy', y);
+        node.setAttribute('r', '4');
+        node.style.setProperty('--pair-color', color);
+        connections.appendChild(node);
+      });
+    });
+  };
+  const resizeObserver = new ResizeObserver(drawConnections);
+  resizeObserver.observe(matchRoot);
+
+  pairs.forEach((pair, index) => {
     const btn = document.createElement('div');
     btn.className = 'quiz-match-item';
     btn.textContent = pair.ancient;
     btn.dataset.ancient = pair.ancient;
+    btn.dataset.pairIndex = index;
+    btn.style.setProperty('--pair-color', pairColors[index % pairColors.length]);
     btn.onclick = () => {
       if (btn.classList.contains('matched')) return;
-      ancientCol.querySelectorAll('.quiz-match-item').forEach(b => b.classList.remove('selected'));
+      ancientCol.querySelectorAll('.quiz-match-item').forEach(b => {
+        if (!b.classList.contains('matched')) {
+          b.classList.remove('selected');
+          clearPairTint(b);
+        }
+      });
       btn.classList.add('selected');
-      selectedAncient = pair.ancient;
+      setPairTint(btn, index, '24');
+      selectedPairIndex = index;
     };
     ancientCol.appendChild(btn);
   });
   shuffledModern.forEach(pair => {
+    const index = pairs.indexOf(pair);
     const btn = document.createElement('div');
     btn.className = 'quiz-match-item';
     btn.textContent = pair.modern;
     btn.dataset.modern = pair.modern;
+    btn.dataset.pairIndex = index;
+    btn.style.setProperty('--pair-color', pairColors[index % pairColors.length]);
     btn.onclick = () => {
-      if (!selectedAncient || btn.classList.contains('matched')) return;
-      const correctPair = pairs.find(p => p.ancient === selectedAncient);
-      if (correctPair && correctPair.modern === pair.modern) {
+      if (selectedPairIndex === null || btn.classList.contains('matched')) return;
+      if (selectedPairIndex === index) {
         btn.classList.add('matched');
-        ancientCol.querySelector(`[data-ancient="${selectedAncient}"]`).classList.add('matched');
-        selectedAncient = null;
+        const ancient = ancientCol.querySelector(`[data-pair-index="${selectedPairIndex}"]`);
+        ancient.classList.remove('selected');
+        ancient.classList.add('matched');
+        setPairTint(ancient, index, '20');
+        setPairTint(btn, index, '20');
+        matchedPairs.add(index);
+        selectedPairIndex = null;
         matchedCount++;
+        drawConnections();
         if (matchedCount === pairs.length) {
           document.getElementById('quiz-result').classList.add('visible');
           showPisaloSuccess('Все слова!');
@@ -814,25 +951,37 @@ function renderMatchQuiz(quiz, c) {
         }
       } else {
         btn.classList.add('wrong-flash');
-        ancientCol.querySelector(`[data-ancient="${selectedAncient}"]`)?.classList.remove('selected');
-        selectedAncient = null;
+        const ancient = ancientCol.querySelector(`[data-pair-index="${selectedPairIndex}"]`);
+        ancient?.classList.remove('selected');
+        if (ancient) clearPairTint(ancient);
+        selectedPairIndex = null;
         document.getElementById('quiz-hint').style.display = 'flex';
         setTimeout(() => { btn.classList.remove('wrong-flash'); }, 600);
       }
     };
     modernCol.appendChild(btn);
   });
+  drawConnections();
 }
 
 // ─── Act I Finale ─────────────────────────────────────────────────────────────
 function showAct1Finale() {
+  const act1 = gameData.acts.find(act => act.id === 'act1');
+  act1?.locations.forEach(location => {
+    if (!state.completedLocations.includes(location.id)) {
+      state.completedLocations.push(location.id);
+      window.SCVTelemetry?.trackLocationCompleted(location.id);
+    }
+  });
+  if (!state.completedLocations.includes('act1')) state.completedLocations.push('act1');
+
   const el = document.getElementById('act-finale');
-  document.getElementById('finale-title').textContent = 'Акт I завершён!';
-  document.getElementById('finale-sub').textContent = 'Древняя Русь открыла свои тайны';
+  document.getElementById('finale-title').textContent = 'Акт I завершён';
+  document.getElementById('finale-sub').textContent = 'Первые слова уже в твоих руках';
   document.getElementById('finale-stats').innerHTML = `
     <div class="finale-stat">
       <div class="finale-stat-num">${state.foundWords.length}</div>
-      <div class="finale-stat-label">слов найдено</div>
+      <div class="finale-stat-label">слов</div>
     </div>
     <div class="finale-stat">
       <div class="finale-stat-num">${state.score}</div>
@@ -844,14 +993,13 @@ function showAct1Finale() {
     </div>`;
   const act2 = gameData.acts.find(a => a.id === 'act2');
   if (act2) act2.unlocked = true;
-  if (!state.completedLocations.includes('act1')) state.completedLocations.push('act1');
   checkAchievements();
   saveProgress();
   el.classList.add('visible');
   lucide.createIcons();
   document.getElementById('finale-btn').onclick = () => {
     el.classList.remove('visible');
-    showActSplash('Акт II', 'Печатный век', 'Скоро...', () => showScreen('map'));
+    showActSplash('Акт II', 'Печатный век', 'В разработке...', () => showScreen('map'));
   };
 }
 
@@ -870,6 +1018,7 @@ function completeLocation() {
   const id = state.currentLocation?.id;
   if (id && !state.completedLocations.includes(id)) {
     state.completedLocations.push(id);
+    window.SCVTelemetry?.trackLocationCompleted(id);
     saveProgress();
     checkAchievements();
   }
@@ -988,7 +1137,7 @@ function showMapTooltip(e, act) {
   const done = act.locations.filter(l => state.completedLocations.includes(l.id)).length;
   const total = act.locations.length;
   document.getElementById('map-tooltip-title').textContent = act.title;
-  document.getElementById('map-tooltip-desc').textContent = total ? `${done}/${total} локаций` : 'Скоро...';
+  document.getElementById('map-tooltip-desc').textContent = total ? `${done}/${total} локаций` : 'В разработке...';
   const statusEl = document.getElementById('map-tooltip-status');
   statusEl.textContent = act.unlocked ? 'Открыто' : 'Закрыто';
   statusEl.className = 'map-tooltip-status' + (act.unlocked ? '' : ' locked');
@@ -1035,7 +1184,7 @@ function openMapPanel(act) {
   });
 
   if (!act.locations.length) {
-    locsEl.innerHTML = `<div style="color:var(--text-dim);font-size:0.85rem;font-style:italic;padding:1rem 0;text-align:center">Скоро...</div>`;
+    locsEl.innerHTML = `<div style="color:var(--text-dim);font-size:0.85rem;font-style:italic;padding:1rem 0;text-align:center">В разработке...</div>`;
   }
 
   panel.classList.add('open');
@@ -1169,6 +1318,8 @@ async function init() {
   gameData = await res.json();
 
   loadProgress();
+  window.SCVGameReady = true;
+  window.SCVTelemetry?.trackGameStart(state.difficulty);
   updateScoreUI();
   updateInventoryCount();
   document.getElementById('diff-badge').textContent = DIFF_LABELS[state.difficulty];

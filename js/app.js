@@ -146,7 +146,11 @@ function startIntro(playPromise) {
   let done = false;
 
   function showFallback() {
-    if (video) video.style.display = 'none';
+    if (done) return;
+    if (video) {
+      video.pause();
+      video.style.display = 'none';
+    }
     placeholder.style.display = 'flex';
     const timer = setTimeout(finish, 4500);
     skipBtn.onclick = () => { clearTimeout(timer); finish(); };
@@ -163,11 +167,29 @@ function startIntro(playPromise) {
 
   if (!video) { showFallback(); return; }
 
+  video.muted = true;
+  video.playsInline = true;
+  video.autoplay = true;
   video.onended = finish;
   video.onerror = showFallback;
 
-  const p = playPromise !== undefined ? playPromise : video.play();
-  if (p !== undefined) p.catch(showFallback);
+  const attemptPlay = () => {
+    const p = video.play();
+    if (p && typeof p.then === 'function') {
+      p.catch(showFallback);
+    }
+  };
+
+  if (playPromise && typeof playPromise.then === 'function') {
+    playPromise.catch(showFallback);
+    return;
+  }
+
+  if (video.readyState >= 2) {
+    attemptPlay();
+  } else {
+    video.addEventListener('loadeddata', attemptPlay, { once: true });
+  }
 }
 
 function launchGame() {
@@ -524,15 +546,21 @@ function renderFillQuiz(quiz, c) {
 function renderMatchQuiz(quiz, c) {
   const pairs = quiz.pairs;
   const shuffledModern = [...pairs].sort(() => Math.random() - 0.5);
-  let selectedAncient = null;
+  const pairColors = ['#e7b84f', '#62c6b0', '#a991e8', '#e88478', '#91bf68', '#df83ad', '#70a9d6'];
+  let selectedPairIndex = null;
   let matchedCount = 0;
   c.innerHTML = `
     <div class="quiz-eyebrow">${quiz.title}</div>
     ${quizScrollWrap(`
       <div class="quiz-question">${quiz.question}</div>
       <div class="quiz-match">
-        <div class="quiz-match-col" id="match-ancient"></div>
-        <div class="quiz-match-col" id="match-modern"></div>
+        <svg class="quiz-match-connections" aria-hidden="true"></svg>
+        <div class="quiz-match-col" id="match-ancient">
+          <div class="quiz-match-heading">Древнее слово</div>
+        </div>
+        <div class="quiz-match-col" id="match-modern">
+          <div class="quiz-match-heading">Современное значение</div>
+        </div>
       </div>
       <div class="quiz-result" id="quiz-result">
         <div class="quiz-result-icon"><i data-lucide="star" style="width:2.2rem;height:2.2rem;color:var(--gold)"></i></div>
@@ -545,32 +573,102 @@ function renderMatchQuiz(quiz, c) {
     </div>`;
   const ancientCol = document.getElementById('match-ancient');
   const modernCol  = document.getElementById('match-modern');
-  pairs.forEach(pair => {
+  const matchRoot = ancientCol.parentElement;
+  const connections = matchRoot.querySelector('.quiz-match-connections');
+  const matchedPairs = new Set();
+  const setPairTint = (element, index, alpha) => {
+    const color = pairColors[index % pairColors.length];
+    element.style.color = color;
+    element.style.borderColor = color;
+    element.style.backgroundColor = `${color}${alpha}`;
+  };
+  const clearPairTint = element => {
+    element.style.removeProperty('color');
+    element.style.removeProperty('border-color');
+    element.style.removeProperty('background-color');
+  };
+
+  const drawConnections = () => {
+    if (!matchRoot.isConnected) {
+      resizeObserver.disconnect();
+      return;
+    }
+    const rootRect = matchRoot.getBoundingClientRect();
+    connections.setAttribute('viewBox', `0 0 ${rootRect.width} ${rootRect.height}`);
+    connections.replaceChildren();
+    matchedPairs.forEach(index => {
+      const ancient = ancientCol.querySelector(`[data-pair-index="${index}"]`);
+      const modern = modernCol.querySelector(`[data-pair-index="${index}"]`);
+      if (!ancient || !modern) return;
+      const ancientRect = ancient.getBoundingClientRect();
+      const modernRect = modern.getBoundingClientRect();
+      const x1 = ancientRect.right - rootRect.left;
+      const y1 = ancientRect.top + ancientRect.height / 2 - rootRect.top;
+      const x2 = modernRect.left - rootRect.left;
+      const y2 = modernRect.top + modernRect.height / 2 - rootRect.top;
+      const bend = Math.max(18, (x2 - x1) * 0.42);
+      const color = pairColors[index % pairColors.length];
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('class', 'quiz-match-connection');
+      path.setAttribute('d', `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`);
+      path.style.setProperty('--pair-color', color);
+      connections.appendChild(path);
+      [ [x1, y1], [x2, y2] ].forEach(([x, y]) => {
+        const node = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        node.setAttribute('class', 'quiz-match-connection-node');
+        node.setAttribute('cx', x);
+        node.setAttribute('cy', y);
+        node.setAttribute('r', '4');
+        node.style.setProperty('--pair-color', color);
+        connections.appendChild(node);
+      });
+    });
+  };
+  const resizeObserver = new ResizeObserver(drawConnections);
+  resizeObserver.observe(matchRoot);
+
+  pairs.forEach((pair, index) => {
     const btn = document.createElement('div');
     btn.className = 'quiz-match-item';
     btn.textContent = pair.ancient;
     btn.dataset.ancient = pair.ancient;
+    btn.dataset.pairIndex = index;
+    btn.style.setProperty('--pair-color', pairColors[index % pairColors.length]);
     btn.onclick = () => {
       if (btn.classList.contains('matched')) return;
-      ancientCol.querySelectorAll('.quiz-match-item').forEach(b => b.classList.remove('selected'));
+      ancientCol.querySelectorAll('.quiz-match-item').forEach(b => {
+        if (!b.classList.contains('matched')) {
+          b.classList.remove('selected');
+          clearPairTint(b);
+        }
+      });
       btn.classList.add('selected');
-      selectedAncient = pair.ancient;
+      setPairTint(btn, index, '24');
+      selectedPairIndex = index;
     };
     ancientCol.appendChild(btn);
   });
   shuffledModern.forEach(pair => {
+    const index = pairs.indexOf(pair);
     const btn = document.createElement('div');
     btn.className = 'quiz-match-item';
     btn.textContent = pair.modern;
     btn.dataset.modern = pair.modern;
+    btn.dataset.pairIndex = index;
+    btn.style.setProperty('--pair-color', pairColors[index % pairColors.length]);
     btn.onclick = () => {
-      if (!selectedAncient || btn.classList.contains('matched')) return;
-      const correctPair = pairs.find(p => p.ancient === selectedAncient);
-      if (correctPair && correctPair.modern === pair.modern) {
+      if (selectedPairIndex === null || btn.classList.contains('matched')) return;
+      if (selectedPairIndex === index) {
         btn.classList.add('matched');
-        ancientCol.querySelector(`[data-ancient="${selectedAncient}"]`).classList.add('matched');
-        selectedAncient = null;
+        const ancient = ancientCol.querySelector(`[data-pair-index="${selectedPairIndex}"]`);
+        ancient.classList.remove('selected');
+        ancient.classList.add('matched');
+        setPairTint(ancient, index, '20');
+        setPairTint(btn, index, '20');
+        matchedPairs.add(index);
+        selectedPairIndex = null;
         matchedCount++;
+        drawConnections();
         if (matchedCount === pairs.length) {
           document.getElementById('quiz-result').classList.add('visible');
           showPisaloSuccess('Все слова!');
@@ -578,14 +676,17 @@ function renderMatchQuiz(quiz, c) {
         }
       } else {
         btn.classList.add('wrong-flash');
-        ancientCol.querySelector(`[data-ancient="${selectedAncient}"]`)?.classList.remove('selected');
-        selectedAncient = null;
+        const ancient = ancientCol.querySelector(`[data-pair-index="${selectedPairIndex}"]`);
+        ancient?.classList.remove('selected');
+        if (ancient) clearPairTint(ancient);
+        selectedPairIndex = null;
         document.getElementById('quiz-hint').style.display = 'flex';
         setTimeout(() => { btn.classList.remove('wrong-flash'); }, 600);
       }
     };
     modernCol.appendChild(btn);
   });
+  drawConnections();
 }
 
 // ─── Act I Finale ─────────────────────────────────────────────────────────────

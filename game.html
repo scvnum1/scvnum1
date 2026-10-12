@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
-<body>
+<body class="game-page">
 
 <!-- ══ ROTATE OVERLAY ══ -->
 <div id="rotate-overlay">
@@ -52,14 +52,18 @@
 
 <!-- ══ ACT FINALE ══ -->
 <div id="act-finale">
-  <div class="finale-trophy">🏆</div>
-  <div class="finale-title" id="finale-title"></div>
-  <div class="finale-sub" id="finale-sub"></div>
-  <div class="finale-stats" id="finale-stats"></div>
-  <button class="btn-primary finale-btn" id="finale-btn">
-    <i data-lucide="map" style="width:16px;height:16px"></i>
-    Открыть карту
-  </button>
+  <div class="finale-card">
+    <div class="finale-mark">
+      <i data-lucide="sparkles" style="width:28px;height:28px"></i>
+    </div>
+    <div class="finale-title" id="finale-title"></div>
+    <div class="finale-sub" id="finale-sub"></div>
+    <div class="finale-stats" id="finale-stats"></div>
+    <button class="btn-primary finale-btn" id="finale-btn">
+      <i data-lucide="map" style="width:16px;height:16px"></i>
+      Открыть карту
+    </button>
+  </div>
 </div>
 
 <!-- ══ ACT SPLASH ══ -->
@@ -195,6 +199,8 @@
   Найдено: <span id="toast-word"></span>
 </div>
 
+<script src="js/telemetry-config.js"></script>
+<script src="js/telemetry.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>
