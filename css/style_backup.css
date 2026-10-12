@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Manrope:wght@300;400;500;600&display=swap');
 
-/* ¢"?¢"? Dark Reader protection ¢"?¢"? */
+/* ï¿½"?ï¿½"? Dark Reader protection ï¿½"?ï¿½"? */
 html {
   color-scheme: dark;
   background-color: #121016 !important;
@@ -67,12 +67,12 @@ h1, h2, h3, h4 {
   to   { width: 100%; }
 }
 
-/* ¢"?¢"? Screen system ¢"?¢"? */
+/* ï¿½"?ï¿½"? Screen system ï¿½"?ï¿½"? */
 .screen { display: none; position: fixed; inset: 0; }
 .screen.active { display: flex; }
 .screen--scroll { overflow-y: auto; }
 
-/* ¢"?¢"? Buttons ¢"?¢"? */
+/* ï¿½"?ï¿½"? Buttons ï¿½"?ï¿½"? */
 .btn-primary {
   background: linear-gradient(135deg, #a8841a, var(--gold));
   color: #0e0c10;
@@ -123,7 +123,7 @@ h1, h2, h3, h4 {
 }
 .btn-ghost--nav:hover { color: var(--gold); }
 
-/* ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? LANDING ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? */
+/* ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? LANDING ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? */
 #screen-landing {
   flex-direction: column;
   background: var(--bg);
@@ -232,7 +232,7 @@ h1, h2, h3, h4 {
 
 .lp-hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
 
-.lp-hero-mori {
+.lp-hero-alenushka {
   flex-shrink: 0;
   width: 270px;
   filter: drop-shadow(0 0 35px rgba(212,175,55,0.28));
@@ -483,7 +483,7 @@ h1, h2, h3, h4 {
 .lp-footer a { color: var(--gold); text-decoration: none; }
 .lp-footer a:hover { text-decoration: underline; }
 
-/* ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? DIFFICULTY MODAL ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? */
+/* ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? DIFFICULTY MODAL ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -593,7 +593,7 @@ h1, h2, h3, h4 {
 
 .ach-desc { font-size: 0.67rem; color: var(--text-dim); line-height: 1.4; }
 
-/* ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? INTRO ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? */
+/* ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? INTRO ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? */
 #screen-intro {
   flex-direction: column;
   align-items: center;
@@ -637,7 +637,7 @@ h1, h2, h3, h4 {
   text-transform: uppercase;
 }
 
-.intro-mori-float {
+.intro-alenushka-float {
   height: 190px;
   filter: drop-shadow(0 0 28px rgba(212,175,55,0.45));
   animation: float 3s ease-in-out infinite;
@@ -677,7 +677,7 @@ h1, h2, h3, h4 {
 }
 .btn-skip:hover { color: var(--gold); border-color: var(--gold); }
 
-/* ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? GAME TOPBAR ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? */
+/* ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? GAME TOPBAR ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? */
 .game-topbar {
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -723,7 +723,7 @@ h1, h2, h3, h4 {
   font-family: 'Manrope', sans-serif;
 }
 
-/* ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? GAME SCREEN ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? */
+/* ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? GAME SCREEN ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? */
 #screen-game { flex-direction: column; position: relative; }
 
 #game-bg {
@@ -747,20 +747,20 @@ h1, h2, h3, h4 {
   white-space: nowrap;
 }
 
-.mori-container {
+.alenushka-container {
   position: absolute;
   bottom: 205px; left: 40px;
   z-index: 10;
   pointer-events: none;
 }
 
-#mori-sprite {
+#alenushka-sprite {
   height: 295px;
   filter: drop-shadow(0 0 18px rgba(212,175,55,0.28));
   animation: float 3s ease-in-out infinite;
   transition: opacity 0.2s;
 }
-#mori-sprite.fade-out { opacity: 0; }
+#alenushka-sprite.fade-out { opacity: 0; }
 
 .dialogue-box {
   position: absolute;
@@ -821,7 +821,7 @@ h1, h2, h3, h4 {
   color: var(--gold-light);
 }
 
-/* ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? MAP ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? */
+/* ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? MAP ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? */
 #screen-map {
   flex-direction: column;
   background: var(--bg);
@@ -881,7 +881,7 @@ h1, h2, h3, h4 {
 .loc-btn[disabled] { cursor: not-allowed; }
 .soon { color: var(--text-dim); font-size: 0.82rem; font-style: italic; }
 
-/* ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? INVENTORY ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? */
+/* ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? INVENTORY ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? */
 #screen-inventory {
   flex-direction: column;
   background: var(--bg);
@@ -912,7 +912,7 @@ h1, h2, h3, h4 {
 .word-desc { color: var(--text-mid); font-size: 0.82rem; line-height: 1.58; }
 .empty-inv { color: var(--text-dim); text-align: center; padding: 3rem; font-style: italic; grid-column: 1/-1; }
 
-/* ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? WORD TOAST ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? */
+/* ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? WORD TOAST ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? */
 #word-toast {
   position: fixed;
   top: 66px; right: 1.5rem;
@@ -933,7 +933,7 @@ h1, h2, h3, h4 {
 }
 #word-toast.show { transform: translateX(0); }
 
-/* ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? 3D COVERFLOW CAROUSEL ¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢?¢? */
+/* ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? 3D COVERFLOW CAROUSEL ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½? */
 .carousel {
   position: relative;
   width: 100%;

@@ -197,7 +197,7 @@ function showActSplash(eyebrow, title, sub, onDone) {
 function setGameBg(value) {
   const bg = document.getElementById('game-bg');
   const next = document.getElementById('game-bg-next');
-  const resolved = (value && (value.startsWith('assets') || value.startsWith('mori'))) ? asset(value) : value;
+  const resolved = (value && (value.startsWith('assets') || value.startsWith('alenushka'))) ? asset(value) : value;
   const css = resolved ? `url('${resolved}') center/cover no-repeat` : resolved;
   next.style.background = css;
   next.style.opacity = '1';
@@ -218,39 +218,39 @@ function startPrologue() {
   showDialogue(state.currentDialogueId);
 }
 
-// ─── Mori sprite ─────────────────────────────────────────────────────────────
-const MORI_SPRITES = {
-  default:  'mori/mori_full.png',
-  happy:    'mori/mori_happy.png',
-  idea:     'mori/mori_idea.png',
-  pout:     'mori/mori_pout.png',
-  shock:    'mori/mori_shock.png',
-  confused: 'mori/mori_confused.png',
-  funny:    'mori/mori_funny..png',
+// ─── Alyonushka sprite ────────────────────────────────────────────────────────
+const ALENUSHKA_SPRITES = {
+  default:  'alenushka/alenushka_full.png',
+  happy:    'alenushka/alenushka_happy.png',
+  idea:     'alenushka/alenushka_idea.png',
+  pout:     'alenushka/alenushka_pout.png',
+  shock:    'alenushka/alenushka_shock.png',
+  confused: 'alenushka/alenushka_confused.png',
+  funny:    'alenushka/alenushka_funny.png',
   none:     null,
 };
 
-const MORI_FALLBACKS = {
-  shock:    'mori/mori_full.png',
-  confused: 'mori/mori_full.png',
-  funny:    'mori/mori_idea.png',
+const ALENUSHKA_FALLBACKS = {
+  shock:    'alenushka/alenushka_full.png',
+  confused: 'alenushka/alenushka_full.png',
+  funny:    'alenushka/alenushka_idea.png',
 };
 
-function setMoriEmotion(emotion) {
-  const container = document.querySelector('.mori-container');
-  const img = document.getElementById('mori-sprite');
+function setAlenushkaEmotion(emotion) {
+  const container = document.querySelector('.alenushka-container');
+  const img = document.getElementById('alenushka-sprite');
   if (emotion === 'none') {
     container.style.display = 'none';
     return;
   }
   container.style.display = '';
-  const src = asset(MORI_SPRITES[emotion] || MORI_SPRITES.default);
+  const src = asset(ALENUSHKA_SPRITES[emotion] || ALENUSHKA_SPRITES.default);
   if (img.src === src) return;
   img.classList.add('fade-out');
   setTimeout(() => {
     img.src = src;
     img.onerror = () => {
-      img.src = asset(MORI_FALLBACKS[emotion] || MORI_SPRITES.default);
+      img.src = asset(ALENUSHKA_FALLBACKS[emotion] || ALENUSHKA_SPRITES.default);
       img.onerror = null;
     };
     img.classList.remove('fade-out');
@@ -280,7 +280,7 @@ function showDialogue(nodeId) {
   const node = getDialogueNode(nodeId);
   if (!node) return;
   state.currentDialogueId = nodeId;
-  setMoriEmotion(node.emotion || 'default');
+  setAlenushkaEmotion(node.emotion || 'default');
   // switch background if node specifies one
   if (node.bg) {
     setGameBg(node.bg);
@@ -433,9 +433,9 @@ function renderChoiceQuiz(quiz, c) {
         <div class="quiz-result-text">Правильно! +${quiz.score} очков</div>
       </div>
     `)}
-    <div class="quiz-mori-hint" id="quiz-hint" style="display:none">
-      <img src="${asset('mori/mori_pout.png')}" class="quiz-mori-hint-img" alt="" />
-      <div class="quiz-mori-hint-bubble">${quiz.hint}</div>
+    <div class="quiz-alenushka-hint" id="quiz-hint" style="display:none">
+      <img src="${asset('alenushka/alenushka_pout.png')}" class="quiz-alenushka-hint-img" alt="" />
+      <div class="quiz-alenushka-hint-bubble">${quiz.hint}</div>
     </div>`;
   const opts = document.getElementById('quiz-opts');
   quiz.options.forEach(opt => {
@@ -486,9 +486,9 @@ function renderFillQuiz(quiz, c) {
         <div class="quiz-result-text">Правильно! +${quiz.score} очков</div>
       </div>
     `)}
-    <div class="quiz-mori-hint" id="quiz-hint" style="display:none">
-      <img src="${asset('mori/mori_pout.png')}" class="quiz-mori-hint-img" alt="" />
-      <div class="quiz-mori-hint-bubble">${quiz.hint}</div>
+    <div class="quiz-alenushka-hint" id="quiz-hint" style="display:none">
+      <img src="${asset('alenushka/alenushka_pout.png')}" class="quiz-alenushka-hint-img" alt="" />
+      <div class="quiz-alenushka-hint-bubble">${quiz.hint}</div>
     </div>`;
   const opts = document.getElementById('fill-opts');
   quiz.options.forEach(letter => {
@@ -539,9 +539,9 @@ function renderMatchQuiz(quiz, c) {
         <div class="quiz-result-text">Все пары совпали! +${quiz.score} очков</div>
       </div>
     `)}
-    <div class="quiz-mori-hint" id="quiz-hint" style="display:none">
-      <img src="${asset('mori/mori_pout.png')}" class="quiz-mori-hint-img" alt="" />
-      <div class="quiz-mori-hint-bubble">${quiz.hint}</div>
+    <div class="quiz-alenushka-hint" id="quiz-hint" style="display:none">
+      <img src="${asset('alenushka/alenushka_pout.png')}" class="quiz-alenushka-hint-img" alt="" />
+      <div class="quiz-alenushka-hint-bubble">${quiz.hint}</div>
     </div>`;
   const ancientCol = document.getElementById('match-ancient');
   const modernCol  = document.getElementById('match-modern');

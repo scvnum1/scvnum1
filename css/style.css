@@ -237,7 +237,7 @@ h1, h2, h3, h4 {
 
 .lp-hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
 
-.lp-hero-mori {
+.lp-hero-alenushka {
   flex-shrink: 0;
   width: 270px;
   filter: drop-shadow(0 0 35px rgba(212,175,55,0.28));
@@ -644,7 +644,7 @@ h1, h2, h3, h4 {
   text-transform: uppercase;
 }
 
-.intro-mori-float {
+.intro-alenushka-float {
   height: 190px;
   filter: drop-shadow(0 0 28px rgba(212,175,55,0.45));
   animation: float 3s ease-in-out infinite;
@@ -780,7 +780,7 @@ h1, h2, h3, h4 {
   white-space: nowrap;
 }
 
-.mori-container {
+.alenushka-container {
   position: absolute;
   bottom: 220px;
   left: clamp(20px, 4vw, 60px);
@@ -789,13 +789,13 @@ h1, h2, h3, h4 {
   transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-#mori-sprite {
+#alenushka-sprite {
   height: clamp(260px, 38vh, 420px);
   filter: drop-shadow(0 8px 32px rgba(0,0,0,0.55)) drop-shadow(0 0 20px rgba(212,175,55,0.2));
   animation: float 3.5s ease-in-out infinite;
   transition: opacity 0.25s ease;
 }
-#mori-sprite.fade-out { opacity: 0; }
+#alenushka-sprite.fade-out { opacity: 0; }
 
 /* Dialogue box */
 .dialogue-box {
@@ -2103,7 +2103,7 @@ h1, h2, h3, h4 {
 }
 
 /* ════════════ МОРИ-ПОДСКАЗКА В КВИЗЕ ════════════ */
-.quiz-mori-hint {
+.quiz-alenushka-hint {
   display: flex;
   align-items: flex-end;
   gap: 0.8rem;
@@ -2112,14 +2112,14 @@ h1, h2, h3, h4 {
   width: 100%;
 }
 
-.quiz-mori-hint-img {
+.quiz-alenushka-hint-img {
   height: 90px;
   flex-shrink: 0;
   filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
   animation: float 3s ease-in-out infinite;
 }
 
-.quiz-mori-hint-bubble {
+.quiz-alenushka-hint-bubble {
   background: rgba(18,16,22,0.95);
   border: 1px solid rgba(212,175,55,0.35);
   border-radius: 10px 10px 10px 2px;
@@ -2131,7 +2131,7 @@ h1, h2, h3, h4 {
   line-height: 1.5;
   position: relative;
 }
-.quiz-mori-hint-bubble::before {
+.quiz-alenushka-hint-bubble::before {
   content: '';
   position: absolute;
   bottom: 8px; left: -8px;
@@ -2166,7 +2166,7 @@ h1, h2, h3, h4 {
     gap: 2rem;
     align-items: flex-start;
   }
-  .lp-hero-mori {
+  .lp-hero-alenushka {
     width: 180px;
     align-self: center;
   }
@@ -2197,11 +2197,11 @@ h1, h2, h3, h4 {
     padding: 1.2rem 1.2rem 1.5rem 1.2rem;
     min-height: 180px;
   }
-  .mori-container {
+  .alenushka-container {
     bottom: 175px;
     left: 10px;
   }
-  #mori-sprite {
+  #alenushka-sprite {
     height: clamp(180px, 28vh, 280px);
   }
 
@@ -2224,7 +2224,7 @@ h1, h2, h3, h4 {
   .lp-hero-inner { gap: 1.5rem; }
   .lp-hero-title { font-size: clamp(1.7rem, 7vw, 2.4rem); }
   .lp-hero-sub { font-size: 0.88rem; }
-  .lp-hero-mori { width: 140px; }
+  .lp-hero-alenushka { width: 140px; }
   .lp-hero-actions { flex-direction: column; align-items: stretch; }
   .lp-hero-actions .btn-primary,
   .lp-hero-actions .btn-ghost { text-align: center; justify-content: center; }
@@ -2252,11 +2252,11 @@ h1, h2, h3, h4 {
     min-height: 160px;
   }
   #dialogue-text { font-size: 0.97rem; min-height: 3rem; }
-  .mori-container {
+  .alenushka-container {
     bottom: 155px;
     left: 6px;
   }
-  #mori-sprite { height: clamp(140px, 22vh, 220px); }
+  #alenushka-sprite { height: clamp(140px, 22vh, 220px); }
   #location-title { font-size: 0.65rem; top: 52px; }
 
   /* Выборы */
@@ -2284,9 +2284,9 @@ h1, h2, h3, h4 {
   .quiz-fill-blank { font-size: clamp(1.4rem, 6vw, 2rem); }
   .quiz-fill-btn { width: 50px; height: 50px; font-size: 1.3rem; }
   .quiz-match-item { font-size: 0.95rem; padding: 0.55rem 0.7rem; }
-  .quiz-mori-hint { gap: 0.5rem; }
-  .quiz-mori-hint-img { height: 70px; }
-  .quiz-mori-hint-bubble { font-size: 0.88rem; padding: 0.55rem 0.8rem; }
+  .quiz-alenushka-hint { gap: 0.5rem; }
+  .quiz-alenushka-hint-img { height: 70px; }
+  .quiz-alenushka-hint-bubble { font-size: 0.88rem; padding: 0.55rem 0.8rem; }
   .quiz-scroll-wrap { width: 98vw; }
   .quiz-scroll-content { padding: 1rem 1rem; gap: 0.75rem; }
 
@@ -2316,8 +2316,8 @@ h1, h2, h3, h4 {
 
 /* ── Очень маленький (≤ 380px) ── */
 @media (max-width: 380px) {
-  .lp-hero-mori { display: none; }
-  #mori-sprite { height: 120px; }
+  .lp-hero-alenushka { display: none; }
+  #alenushka-sprite { height: 120px; }
   .carousel-slide { width: 220px; }
   .carousel-slide.pos-left  { transform: translateX(-160px) translateZ(-130px) rotateY(35deg) scale(0.75); }
   .carousel-slide.pos-right { transform: translateX(160px)  translateZ(-130px) rotateY(-35deg) scale(0.75); }
@@ -2386,12 +2386,12 @@ h1, h2, h3, h4 {
     -webkit-backdrop-filter: blur(12px);
   }
 
-  /* Мори — меньше и левее */
-  .mori-container {
+  /* Аленушка — меньше и левее */
+  .alenushka-container {
     bottom: 100px;
     left: 8px;
   }
-  #mori-sprite {
+  #alenushka-sprite {
     height: clamp(110px, 20vh, 170px);
   }
 
@@ -2433,7 +2433,7 @@ h1, h2, h3, h4 {
     padding: 0.3rem 1.2rem;
   }
   .quiz-scroll-content { padding: 0.8rem 1.2rem; gap: 0.6rem; }
-  .quiz-mori-hint-img { height: 60px; }
+  .quiz-alenushka-hint-img { height: 60px; }
 
   /* Архив */
   .archive-page {
