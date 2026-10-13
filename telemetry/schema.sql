@@ -7,7 +7,10 @@ CREATE TABLE IF NOT EXISTS visitors (
   quizzes_completed INTEGER NOT NULL DEFAULT 0,
   locations_completed INTEGER NOT NULL DEFAULT 0,
   runtime_errors INTEGER NOT NULL DEFAULT 0,
-  max_score INTEGER NOT NULL DEFAULT 0
+  max_score INTEGER NOT NULL DEFAULT 0,
+  device_type TEXT,
+  platform_name TEXT,
+  browser_name TEXT
 );
 
 CREATE TABLE IF NOT EXISTS sessions (

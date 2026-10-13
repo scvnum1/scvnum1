@@ -138,27 +138,31 @@ function continueGame() {
 }
 
 // ─── Intro cutscene ───────────────────────────────────────────────────────────
-function startIntro(playPromise) {
+function startIntro() {
   showScreen('intro');
   const video = document.getElementById('intro-video');
   const placeholder = document.getElementById('intro-placeholder');
   const skipBtn = document.getElementById('btn-skip-intro');
   let done = false;
+  let fallbackTimer = null;
+  let fallbackFinishTimer = null;
 
   function showFallback() {
-    if (done) return;
+    if (done || placeholder.style.display === 'flex') return;
+    clearTimeout(fallbackTimer);
     if (video) {
       video.pause();
       video.style.display = 'none';
     }
     placeholder.style.display = 'flex';
-    const timer = setTimeout(finish, 4500);
-    skipBtn.onclick = () => { clearTimeout(timer); finish(); };
+    fallbackFinishTimer = setTimeout(finish, 4500);
   }
 
   function finish() {
     if (done) return;
     done = true;
+    clearTimeout(fallbackTimer);
+    clearTimeout(fallbackFinishTimer);
     if (video) video.pause();
     launchGame();
   }
@@ -170,26 +174,13 @@ function startIntro(playPromise) {
   video.muted = true;
   video.playsInline = true;
   video.autoplay = true;
+  video.preload = 'auto';
+  video.style.display = '';
   video.onended = finish;
   video.onerror = showFallback;
-
-  const attemptPlay = () => {
-    const p = video.play();
-    if (p && typeof p.then === 'function') {
-      p.catch(showFallback);
-    }
-  };
-
-  if (playPromise && typeof playPromise.then === 'function') {
-    playPromise.catch(showFallback);
-    return;
-  }
-
-  if (video.readyState >= 2) {
-    attemptPlay();
-  } else {
-    video.addEventListener('loadeddata', attemptPlay, { once: true });
-  }
+  video.onplaying = () => clearTimeout(fallbackTimer);
+  fallbackTimer = setTimeout(showFallback, 20000);
+  video.play().catch(showFallback);
 }
 
 function launchGame() {
@@ -1048,10 +1039,8 @@ async function init() {
   document.getElementById('btn-confirm-diff').onclick = () => {
     const video = document.getElementById('intro-video');
     if (video) video.currentTime = 0;
-    const playPromise = video ? video.play() : null;
-    if (playPromise) playPromise.catch(err => console.error('[VIDEO]', err.name, err.message));
     closeDifficultyModal();
-    startIntro(playPromise);
+    startIntro();
   };
   document.getElementById('btn-close-diff').onclick = closeDifficultyModal;
   document.getElementById('btn-close-diff-cancel').onclick = closeDifficultyModal;

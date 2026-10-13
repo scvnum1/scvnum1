@@ -4,7 +4,7 @@
   const SESSION_KEY = 'scv_analytics_session';
   const SESSION_ACTIVITY_KEY = 'scv_analytics_last_activity';
   const STARTED_KEY = 'scv_analytics_game_started';
-  const NOTICE_DISMISSED_KEY = 'scv_telemetry_notice_dismissed';
+  const NOTICE_ACCEPTED_KEY = 'scv_telemetry_notice_accepted_v2';
   const SESSION_IDLE_MS = 30 * 60 * 1000;
   const HEARTBEAT_INTERVAL_MS = 60 * 1000;
   const PAGE_NAMES = { 'game.html': 'game' };
@@ -48,11 +48,47 @@
     return id;
   }
 
+  function detectDeviceProfile() {
+    const ua = navigator.userAgent || '';
+    const isTablet = /iPad|Tablet|PlayBook|Silk/i.test(ua)
+      || (/Android/i.test(ua) && !/Mobile/i.test(ua));
+    const isMobile = !isTablet && /Android|iPhone|iPod|Mobile/i.test(ua);
+    const browserName = /EdgA?\//.test(ua)
+      ? 'Edge'
+      : /OPR\//.test(ua)
+        ? 'Opera'
+        : /Firefox\//.test(ua)
+          ? 'Firefox'
+          : /Chrome\//.test(ua)
+            ? 'Chrome'
+            : /Safari\//.test(ua)
+              ? 'Safari'
+              : 'unknown';
+    const platformName = /Windows/i.test(ua)
+      ? 'Windows'
+      : /Android/i.test(ua)
+        ? 'Android'
+        : /iPhone|iPad|iPod/i.test(ua)
+          ? 'iOS'
+          : /Mac/i.test(ua)
+            ? 'macOS'
+            : /Linux/i.test(ua)
+              ? 'Linux'
+              : 'unknown';
+
+    return {
+      device_type: isTablet ? 'tablet' : isMobile ? 'mobile' : 'desktop',
+      platform_name: platformName,
+      browser_name: browserName,
+    };
+  }
+
   function send(type, metadata = {}) {
     const visitorId = getOrCreate(localStorage, VISITOR_KEY);
     const sessionId = getSessionId();
     const eventId = createId();
     if (!visitorId || !sessionId || !eventId) return Promise.resolve(false);
+    const deviceProfile = detectDeviceProfile();
 
     return fetch(endpoint, {
       method: 'POST',
@@ -65,7 +101,13 @@
         visitor_id: visitorId,
         session_id: sessionId,
         type,
-        metadata,
+        metadata: {
+          ...metadata,
+          device_type: metadata.device_type || deviceProfile.device_type,
+          platform_name: metadata.platform_name || deviceProfile.platform_name,
+          browser_name: metadata.browser_name || deviceProfile.browser_name,
+        },
+        user_agent: navigator.userAgent.slice(0, 512),
       }),
     }).then(response => {
       if (!response.ok) console.warn(`Anonymous analytics request failed: HTTP ${response.status}.`);
@@ -125,19 +167,15 @@
 
   function dismissNotice() {
     removeNotice();
-    sessionStorage.setItem(NOTICE_DISMISSED_KEY, 'yes');
-    if (document.getElementById('scv-telemetry-settings')) return;
-    const settings = document.createElement('button');
-    settings.id = 'scv-telemetry-settings';
-    settings.className = 'scv-telemetry-settings';
-    settings.type = 'button';
-    settings.textContent = 'О сборе данных';
-    settings.addEventListener('click', showTelemetryNotice);
-    document.body.appendChild(settings);
+    document.getElementById('scv-telemetry-settings')?.remove();
   }
 
   function showTelemetryNotice() {
     removeNotice();
+    if (localStorage.getItem(NOTICE_ACCEPTED_KEY) === 'yes') {
+      dismissNotice();
+      return;
+    }
     const panel = document.createElement('section');
     panel.id = 'scv-telemetry-consent';
     panel.className = 'scv-telemetry-consent';
@@ -145,15 +183,17 @@
     panel.setAttribute('aria-labelledby', 'scv-telemetry-title');
     panel.innerHTML = `
       <div class="scv-telemetry-copy">
-        <strong id="scv-telemetry-title">Анонимная статистика работы игры</strong>
-        <p>Сайт автоматически собирает просмотры страниц, сложность, этапы и результаты заданий, типы технических ошибок и активность видимой вкладки. Случайный ID связывает статистику посещений в этом браузере, но не содержит имени. Ответы и текст ошибок не сохраняются. IP не записывается в таблицы телеметрии; Cloudflare может обрабатывать технические данные запросов. События и сессии удаляются примерно через 180 дней, а профиль браузера — после 180 дней без новых посещений. Сбор нужен для статистики и не отключается через игру.</p>
+        <strong id="scv-telemetry-title">Анонимная статистика</strong>
+        <p>Собираются посещения, примерное устройство и браузер, этапы игры и технические ошибки. Имя и ответы не собираются. Подробнее — в правилах конфиденциальности проекта.</p>
       </div>
       <div class="scv-telemetry-actions">
-        <button type="button" data-telemetry-action="close">Понятно</button>
+        <button type="button" data-telemetry-action="accept">Понятно</button>
       </div>`;
-    panel.querySelector('[data-telemetry-action="close"]').addEventListener('click', dismissNotice);
+    panel.querySelector('[data-telemetry-action="accept"]').addEventListener('click', () => {
+      localStorage.setItem(NOTICE_ACCEPTED_KEY, 'yes');
+      dismissNotice();
+    });
     document.body.appendChild(panel);
-    document.getElementById('scv-telemetry-settings')?.remove();
   }
 
   window.SCVTelemetry = {
@@ -180,11 +220,13 @@
   window.addEventListener('unhandledrejection', event => reportRuntimeError(event.reason));
 
   function initialize() {
-    localStorage.removeItem('scv_analytics_consent');
+    if (localStorage.getItem(NOTICE_ACCEPTED_KEY) === 'yes') {
+      dismissNotice();
+    } else {
+      showTelemetryNotice();
+    }
     trackPageView();
     startPresenceUpdates();
-    if (sessionStorage.getItem(NOTICE_DISMISSED_KEY) !== 'yes') showTelemetryNotice();
-    else dismissNotice();
   }
 
   if (document.readyState === 'loading') {
