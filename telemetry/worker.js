@@ -1008,9 +1008,19 @@ function isAdminPrivateChat(env, user, chat) {
 }
 
 async function telegramMessage(env, message) {
-  if (!message?.text || !isAdminPrivateChat(env, message.from, message.chat)) return;
+  if (!message?.text) return;
   const [rawCommand, argument] = message.text.trim().split(/\s+/, 2);
   const command = rawCommand.split('@')[0];
+  if (!isAdminPrivateChat(env, message.from, message.chat)) {
+    if (command === '/start' && message.chat?.type === 'private' && message.chat.id === message.from?.id) {
+      return Boolean(await telegramApi(env, 'sendMessage', {
+        chat_id: message.chat.id,
+        text: 'Бот доступен только администратору. Проверьте, что TELEGRAM_ADMIN_ID в Cloudflare совпадает с вашим числовым Telegram ID.',
+        disable_web_page_preview: true,
+      }));
+    }
+    return;
+  }
   if (command === '/stats' || command === '/menu' || command === '/start') {
     const dashboard = await renderDashboard(env, 'overview');
     return Boolean(await sendDashboardPhoto(env, dashboard.png, dashboard.caption, dashboard.keyboard));

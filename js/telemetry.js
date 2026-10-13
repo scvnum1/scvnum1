@@ -183,8 +183,8 @@
     panel.setAttribute('aria-labelledby', 'scv-telemetry-title');
     panel.innerHTML = `
       <div class="scv-telemetry-copy">
-        <strong id="scv-telemetry-title">Анонимная статистика</strong>
-        <p>Собираются посещения, примерное устройство и браузер, этапы игры и технические ошибки. Имя и ответы не собираются. Подробнее — в правилах конфиденциальности проекта.</p>
+        <strong id="scv-telemetry-title">Техническая статистика</strong>
+        <p>Учитываются посещения, устройство и браузер, этапы игры и технические ошибки; случайный ID связывает визиты в этом браузере. Имя и ответы не собираются. <a href="privacy.html">Правила конфиденциальности</a>.</p>
       </div>
       <div class="scv-telemetry-actions">
         <button type="button" data-telemetry-action="accept">Понятно</button>
@@ -228,6 +228,10 @@
     trackPageView();
     startPresenceUpdates();
   }
+
+  window.addEventListener('storage', event => {
+    if (event.key === NOTICE_ACCEPTED_KEY && event.newValue === 'yes') dismissNotice();
+  });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initialize, { once: true });

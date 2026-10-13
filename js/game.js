@@ -174,6 +174,7 @@ function startIntro() {
   const video = document.getElementById('intro-video');
   const placeholder = document.getElementById('intro-placeholder');
   const skipBtn = document.getElementById('btn-skip-intro');
+  const playButton = document.getElementById('intro-play');
   let done = false;
   let fallbackTimer = null;
   let fallbackFinishTimer = null;
@@ -181,6 +182,7 @@ function startIntro() {
   function showFallback() {
     if (done || placeholder.style.display === 'flex') return;
     clearTimeout(fallbackTimer);
+    if (playButton) playButton.hidden = true;
     if (video) {
       video.pause();
       video.style.display = 'none';
@@ -198,7 +200,31 @@ function startIntro() {
     launchGame();
   }
 
+  function handlePlaybackError(error) {
+    if (['NotAllowedError', 'AbortError'].includes(error?.name) && playButton) {
+      clearTimeout(fallbackTimer);
+      playButton.hidden = false;
+      return;
+    }
+    console.warn('Intro video playback failed:', error instanceof Error ? error.name : 'unknown error');
+    showFallback();
+  }
+
+  function playVideo() {
+    if (!video) { showFallback(); return; }
+    if (playButton) playButton.hidden = true;
+    clearTimeout(fallbackTimer);
+    fallbackTimer = setTimeout(showFallback, 20000);
+    try {
+      const playback = video.play();
+      if (playback) playback.catch(handlePlaybackError);
+    } catch (error) {
+      handlePlaybackError(error);
+    }
+  }
+
   skipBtn.onclick = finish;
+  if (playButton) playButton.onclick = playVideo;
 
   if (!video) { showFallback(); return; }
 
@@ -208,10 +234,15 @@ function startIntro() {
   video.preload = 'auto';
   video.style.display = '';
   video.onended = finish;
-  video.onerror = showFallback;
-  video.onplaying = () => clearTimeout(fallbackTimer);
-  fallbackTimer = setTimeout(showFallback, 20000);
-  video.play().catch(showFallback);
+  video.onerror = () => {
+    console.warn('Intro video failed to load:', video.error?.code || 'unknown media error');
+    showFallback();
+  };
+  video.onplaying = () => {
+    clearTimeout(fallbackTimer);
+    if (playButton) playButton.hidden = true;
+  };
+  playVideo();
 }
 
 function launchGame() {

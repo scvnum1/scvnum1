@@ -104,6 +104,21 @@ Remove-Variable bot, hook, botSecure, hookSecure
 В строке URL замени `https://YOUR-WORKER.workers.dev` на адрес Worker из шага 2.
 Введи те же токен и `WEBHOOK_SECRET`, которые только что сохранил в Cloudflare.
 В успешном ответе Telegram будет `"ok": true`.
+Если бот молчит, повторно выполни этот шаг после проверки секретов. В `getWebhookInfo`
+проверь, что URL заканчивается на `/telegram` и `last_error_message` отсутствует.
+Команда `/start` показывает статистику только в личном чате с аккаунта, чей
+числовой Telegram ID записан в `TELEGRAM_ADMIN_ID`. Секреты и полный токен не
+публикуй и не отправляй в чат.
+
+Для безопасной проверки webhook запроси его статус в PowerShell (токен вводится
+скрыто и переменные удаляются после запроса):
+
+```powershell
+$botSecure = Read-Host "Токен бота" -AsSecureString
+$bot = [System.Net.NetworkCredential]::new("", $botSecure).Password
+Invoke-RestMethod -Uri "https://api.telegram.org/bot$bot/getWebhookInfo" -Method Get
+Remove-Variable bot, botSecure
+```
 
 ## 4. Включите сбор статистики в игре
 
@@ -120,7 +135,8 @@ window.SCV_TELEMETRY_ENDPOINT = 'https://YOUR-WORKER.workers.dev/api/events';
 Проверь, что адрес `https://YOUR-WORKER.workers.dev/health` возвращает
 `{"ok":true}`. После этого опубликуй обновлённые файлы игры на сайте. События
 отправляются автоматически; игрокам показывается уведомление, которое можно
-закрыть без отключения сбора.
+закрыть без отключения сбора. Ссылка на правила конфиденциальности ведёт на
+`privacy.html`, где описаны собираемые данные и сроки хранения.
 
 Перед публичным запуском добавь в Cloudflare правило ограничения частоты
 запросов к `/api/events`, чтобы снизить риск автоматического спама.
