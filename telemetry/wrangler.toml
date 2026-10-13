@@ -6,6 +6,10 @@ workers_dev = true
 [vars]
 ALLOWED_ORIGIN = "https://scvnum1.github.io"
 
+[assets]
+directory = "./assets"
+binding = "ASSETS"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "scv-telemetry"

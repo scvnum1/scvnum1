@@ -244,10 +244,160 @@ async function dashboardPng(title, subtitle, rows) {
     scanlines[lineStart] = 0;
     scanlines.set(pixels.subarray(y * byteLength, (y + 1) * byteLength), lineStart + 1);
   }
-  return new Blob([await encodePng(scanlines)], { type: 'image/png' });
+  return new Blob([await encodePng(scanlines, DASHBOARD_WIDTH, DASHBOARD_HEIGHT)], { type: 'image/png' });
 }
 
-function encodePng(scanlines) {
+async function dashboardTemplatePng(env, filename, values) {
+  if (!env.ASSETS) throw new Error('Dashboard assets binding is not configured.');
+  const response = await env.ASSETS.fetch(new Request(`https://assets/dashboard/${filename}`));
+  if (!response.ok) throw new Error(`Dashboard template ${filename} could not be loaded: HTTP ${response.status}.`);
+  const template = await decodePng(new Uint8Array(await response.arrayBuffer()));
+  if (template.width !== 1448 || template.height !== 1086 || template.channels !== 3) {
+    throw new Error(`Dashboard template ${filename} must be 1448x1086 RGB PNG.`);
+  }
+
+  const glyphs = Object.fromEntries(Object.entries(DASHBOARD_FONT)
+    .map(([character, glyph]) => [character, glyph.replace(/\s/g, '')]));
+  const drawNumber = (value, centerX, centerY) => {
+    const text = String(Math.max(0, Math.floor(Number(value) || 0)));
+    const scale = text.length > 3 ? 3 : 4;
+    const charWidth = 6 * scale;
+    let x = Math.round(centerX - (text.length * charWidth - scale) / 2);
+    const y = Math.round(centerY - (7 * scale) / 2);
+    for (const character of text) {
+      const glyph = glyphs[character] || glyphs['0'];
+      for (let row = 0; row < 7; row += 1) {
+        for (let column = 0; column < 5; column += 1) {
+          if (glyph[row * 5 + column] === '1') {
+            fillRasterRect(template, x + column * scale, y + row * scale, scale, scale, [83, 55, 27]);
+          }
+        }
+      }
+      x += charWidth;
+    }
+  };
+
+  const rowCenters = [257, 358, 459, 560, 660, 760, 861];
+  const leftCenters = [300, 300, 300, 300, 300, 300, 300];
+  const rightCenters = [1134, 1134, 1134, 1134, 1134, 1134, 1134];
+  const barLeft = 379;
+  const barWidth = 652;
+  const maxCompleted = Math.max(1, ...values.map(row => row.completed));
+  values.slice(0, rowCenters.length).forEach((row, index) => {
+    const centerY = rowCenters[index];
+    drawNumber(row.completed, leftCenters[index], centerY);
+    drawNumber(row.online, rightCenters[index], centerY);
+    const width = row.completed ? Math.max(5, Math.round((row.completed / maxCompleted) * barWidth)) : 0;
+    if (width) fillRasterRect(template, barLeft, centerY + 10, width, 8, [161, 104, 41]);
+  });
+
+  return new Blob([await encodePng(encodeRaster(template), template.width, template.height)], { type: 'image/png' });
+}
+
+function fillRasterRect(image, x, y, width, height, color) {
+  const left = Math.max(0, Math.floor(x));
+  const top = Math.max(0, Math.floor(y));
+  const right = Math.min(image.width, Math.ceil(x + width));
+  const bottom = Math.min(image.height, Math.ceil(y + height));
+  const row = new Uint8Array((right - left) * image.channels);
+  for (let pixel = 0; pixel < right - left; pixel += 1) row.set(color, pixel * image.channels);
+  for (let py = top; py < bottom; py += 1) {
+    image.pixels.set(row, (py * image.width + left) * image.channels);
+  }
+}
+
+function paethPredictor(left, above, upperLeft) {
+  const estimate = left + above - upperLeft;
+  const leftDistance = Math.abs(estimate - left);
+  const aboveDistance = Math.abs(estimate - above);
+  const upperLeftDistance = Math.abs(estimate - upperLeft);
+  if (leftDistance <= aboveDistance && leftDistance <= upperLeftDistance) return left;
+  if (aboveDistance <= upperLeftDistance) return above;
+  return upperLeft;
+}
+
+async function decodePng(bytes) {
+  const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (!signature.every((byte, index) => bytes[index] === byte)) throw new Error('Dashboard template is not a PNG file.');
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = 0;
+  const compressedParts = [];
+  for (let offset = 8; offset + 12 <= bytes.length;) {
+    const length = view.getUint32(offset);
+    const type = new TextDecoder().decode(bytes.subarray(offset + 4, offset + 8));
+    if (offset + length + 12 > bytes.length) throw new Error('Dashboard template has a truncated PNG chunk.');
+    const data = bytes.subarray(offset + 8, offset + 8 + length);
+    if (type === 'IHDR') {
+      width = view.getUint32(offset + 8);
+      height = view.getUint32(offset + 12);
+      bitDepth = data[8];
+      colorType = data[9];
+      if (data[10] !== 0 || data[11] !== 0 || data[12] !== 0) {
+        throw new Error('Dashboard template uses an unsupported PNG encoding.');
+      }
+    } else if (type === 'IDAT') {
+      compressedParts.push(data);
+    } else if (type === 'IEND') {
+      break;
+    }
+    offset += length + 12;
+  }
+  if (!width || !height || bitDepth !== 8 || ![2, 6].includes(colorType) || !compressedParts.length) {
+    throw new Error('Dashboard template must be an 8-bit RGB or RGBA PNG.');
+  }
+
+  const channels = colorType === 6 ? 4 : 3;
+  const compressedLength = compressedParts.reduce((sum, part) => sum + part.length, 0);
+  const compressed = new Uint8Array(compressedLength);
+  let compressedOffset = 0;
+  for (const part of compressedParts) {
+    compressed.set(part, compressedOffset);
+    compressedOffset += part.length;
+  }
+  const decompressed = new Uint8Array(await new Response(
+    new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate')),
+  ).arrayBuffer());
+  const stride = width * channels;
+  if (decompressed.length !== (stride + 1) * height) throw new Error('Dashboard template PNG pixel data has an unexpected size.');
+
+  const pixels = new Uint8Array(stride * height);
+  for (let y = 0; y < height; y += 1) {
+    const filter = decompressed[y * (stride + 1)];
+    const inputOffset = y * (stride + 1) + 1;
+    const rowOffset = y * stride;
+    const previousOffset = rowOffset - stride;
+    if (filter > 4) throw new Error(`Dashboard template uses unsupported PNG filter ${filter}.`);
+    for (let x = 0; x < stride; x += 1) {
+      const raw = decompressed[inputOffset + x];
+      const left = x >= channels ? pixels[rowOffset + x - channels] : 0;
+      const above = y > 0 ? pixels[previousOffset + x] : 0;
+      const upperLeft = y > 0 && x >= channels ? pixels[previousOffset + x - channels] : 0;
+      let predictor = 0;
+      if (filter === 1) predictor = left;
+      else if (filter === 2) predictor = above;
+      else if (filter === 3) predictor = Math.floor((left + above) / 2);
+      else if (filter === 4) predictor = paethPredictor(left, above, upperLeft);
+      pixels[rowOffset + x] = (raw + predictor) & 0xff;
+    }
+  }
+  return { width, height, channels, pixels };
+}
+
+function encodeRaster(image) {
+  const stride = image.width * image.channels;
+  const scanlines = new Uint8Array((stride + 1) * image.height);
+  for (let y = 0; y < image.height; y += 1) {
+    const offset = y * (stride + 1);
+    scanlines[offset] = 0;
+    scanlines.set(image.pixels.subarray(y * stride, (y + 1) * stride), offset + 1);
+  }
+  return scanlines;
+}
+
+async function encodePng(scanlines, width, height) {
   const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
   const crcTable = new Uint32Array(256);
   for (let index = 0; index < crcTable.length; index += 1) {
@@ -257,14 +407,12 @@ function encodePng(scanlines) {
     }
     crcTable[index] = value >>> 0;
   }
-  const width = DASHBOARD_WIDTH;
-  const height = DASHBOARD_HEIGHT;
   const header = new Uint8Array(13);
   const headerView = new DataView(header.buffer);
   headerView.setUint32(0, width);
   headerView.setUint32(4, height);
   header[8] = 8;
-  header[9] = 6;
+  header[9] = 2;
 
   const chunk = (name, data) => {
     const type = new TextEncoder().encode(name);
@@ -583,6 +731,7 @@ async function renderDashboard(env, view, page = 0, visitorId = null, eventPage 
   let subtitle = 'ANONYMOUS WEBSITE AND GAME STATISTICS';
   let caption = '';
   let rows = [];
+  let png = null;
   let users = [];
   let currentPage = page;
   let hasNextPage = false;
@@ -625,19 +774,35 @@ async function renderDashboard(env, view, page = 0, visitorId = null, eventPage 
     ]);
     const activeByStage = new Map(active.results.map(row => [row.current_location, row.players]));
     const completedByStage = new Map(completed.results.map(row => [row.location_id, row.completed]));
+    const stageGroups = [
+      { ids: ['prologue', 'scriptorium'], label: 'Пролог и Скрипторий' },
+      { ids: ['birch_grove'], label: STAGE_LABELS.birch_grove },
+      { ids: ['church'], label: STAGE_LABELS.church },
+      { ids: ['courtyard'], label: STAGE_LABELS.courtyard },
+      { ids: ['bell_tower'], label: STAGE_LABELS.bell_tower },
+      { ids: ['market'], label: STAGE_LABELS.market },
+      { ids: ['river_dock'], label: STAGE_LABELS.river_dock },
+    ];
+    const stageStats = stageGroups.map(group => ({
+      ...group,
+      completed: group.ids.reduce((sum, id) => sum + (completedByStage.get(id) || 0), 0),
+      online: group.ids.reduce((sum, id) => sum + (activeByStage.get(id) || 0), 0),
+    }));
     title = 'GAME STAGES';
-    subtitle = 'COMPLETED VISITS AND CURRENT PLAYERS';
+    subtitle = '7 STAGES / COMPLETED VISITS AND CURRENT PLAYERS';
     caption = [
       '🗺 Этапы игры: завершения — зарегистрированные прохождения; онлайн — браузеры, у которых сейчас открыт этап.',
-      ...Object.entries(STAGE_LABELS).map(([id, label]) =>
-        `${label}: завершили ${completedByStage.get(id) || 0}, сейчас ${activeByStage.get(id) || 0}`,
+      ...stageStats.map(stage =>
+        `${stage.label}: завершили ${stage.completed}, сейчас онлайн ${stage.online}`,
       ),
+      'В шаблоне семь строк: Пролог и Скрипторий объединены в одну.',
     ].join('\n');
-    rows = Object.entries(STAGE_LABELS).map(([id, label]) => ({
-      label: label.replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim() || id,
-      value: `DONE ${completedByStage.get(id) || 0}`,
-      detail: `NOW ${activeByStage.get(id) || 0}`,
+    rows = stageStats.map(stage => ({
+      label: stage.label.replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim(),
+      value: `DONE ${stage.completed}`,
+      detail: `NOW ${stage.online}`,
     }));
+    png = await dashboardTemplatePng(env, 'analytics.png', stageStats);
   } else if (view === 'difficulty') {
     const [{ results }, active] = await Promise.all([
       env.DB.prepare(
@@ -827,7 +992,7 @@ async function renderDashboard(env, view, page = 0, visitorId = null, eventPage 
     hasNextEvents,
   );
   return {
-    png: await dashboardPng(title, subtitle, rows),
+    png: png || await dashboardPng(title, subtitle, rows),
     caption,
     keyboard,
     page: currentPage,
