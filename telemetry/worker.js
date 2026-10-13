@@ -179,24 +179,24 @@ const DASHBOARD_FONT = {
 };
 
 async function dashboardPng(title, subtitle, rows) {
-  const pixels = new Uint8Array(DASHBOARD_WIDTH * DASHBOARD_HEIGHT * 4);
+  const pixels = new Uint8Array(DASHBOARD_WIDTH * DASHBOARD_HEIGHT * 3);
   const colors = {
-    background: [12, 18, 32, 255],
-    card: [22, 31, 49, 255],
-    accent: [218, 181, 89, 255],
-    text: [242, 238, 224, 255],
-    muted: [151, 166, 185, 255],
-    bar: [68, 132, 135, 255],
+    background: [12, 18, 32],
+    card: [22, 31, 49],
+    accent: [218, 181, 89],
+    text: [242, 238, 224],
+    muted: [151, 166, 185],
+    bar: [68, 132, 135],
   };
   const fillRect = (x, y, width, height, color) => {
     const left = Math.max(0, Math.floor(x));
     const top = Math.max(0, Math.floor(y));
     const right = Math.min(DASHBOARD_WIDTH, Math.ceil(x + width));
     const bottom = Math.min(DASHBOARD_HEIGHT, Math.ceil(y + height));
-    const row = new Uint8Array((right - left) * 4);
-    for (let px = 0; px < right - left; px += 1) row.set(color, px * 4);
+    const row = new Uint8Array((right - left) * 3);
+    for (let px = 0; px < right - left; px += 1) row.set(color, px * 3);
     for (let py = top; py < bottom; py += 1) {
-      pixels.set(row, (py * DASHBOARD_WIDTH + left) * 4);
+      pixels.set(row, (py * DASHBOARD_WIDTH + left) * 3);
     }
   };
   const drawText = (value, x, y, scale, color, maxLength = 48) => {
@@ -238,7 +238,7 @@ async function dashboardPng(title, subtitle, rows) {
   });
   drawText('LIVE ANALYTICS', 52, DASHBOARD_HEIGHT - 32, 2, colors.muted, 30);
 
-  const byteLength = DASHBOARD_WIDTH * 4;
+  const byteLength = DASHBOARD_WIDTH * 3;
   const scanlines = new Uint8Array((byteLength + 1) * DASHBOARD_HEIGHT);
   for (let y = 0; y < DASHBOARD_HEIGHT; y += 1) {
     const lineStart = y * (byteLength + 1);
