@@ -474,13 +474,15 @@ async function telegramApi(env, method, payload) {
     headers: isForm ? {} : { 'Content-Type': 'application/json' },
     body: isForm ? payload : JSON.stringify(payload),
   });
-  if (!response.ok) {
-    console.error('Telegram notification failed with HTTP status:', response.status);
-    return false;
-  }
-  const result = await response.json();
+  const body = await response.json();
+  const result = body && typeof body === 'object' ? body : {};
   if (!result.ok) {
-    console.error('Telegram API call was rejected:', method);
+    console.error('Telegram API call failed:', {
+      method,
+      httpStatus: response.status,
+      errorCode: result.error_code || null,
+      description: typeof result.description === 'string' ? result.description.slice(0, 300) : 'No error description returned.',
+    });
     return false;
   }
   return result;
