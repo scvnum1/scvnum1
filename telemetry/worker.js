@@ -123,11 +123,12 @@ async function readJson(request, maxBytes) {
   }
 }
 
-async function sendTelegram(env, text) {
+async function sendTelegram(env, text, keyboard = null) {
   return Boolean(await telegramApi(env, 'sendMessage', {
     chat_id: env.TELEGRAM_ADMIN_ID,
     text,
     disable_web_page_preview: true,
+    ...(keyboard ? { reply_markup: keyboard } : {}),
   }));
 }
 
@@ -1025,7 +1026,9 @@ async function telegramMessage(env, message) {
   }
   if (command === '/stats' || command === '/menu' || command === '/start') {
     const dashboard = await renderDashboard(env, 'overview');
-    return Boolean(await sendDashboardPhoto(env, dashboard.png, dashboard.caption, dashboard.keyboard));
+    const sent = await sendDashboardPhoto(env, dashboard.png, dashboard.caption, dashboard.keyboard);
+    if (sent) return true;
+    return Boolean(await sendTelegram(env, dashboard.caption, dashboard.keyboard));
   } else if (command === '/users') {
     const dashboard = await renderDashboard(env, 'users');
     return Boolean(await sendDashboardPhoto(env, dashboard.png, dashboard.caption, dashboard.keyboard));
