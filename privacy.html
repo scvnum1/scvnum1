@@ -35,7 +35,19 @@
       <p>Кнопка «Понятно» закрывает уведомление и запоминает это решение в текущем браузере. Она не отключает сбор технической статистики.</p>
     </section>
 
-    <a class="btn-ghost privacy-back" href="game.html">Вернуться в игру</a>
+    <a class="btn-ghost privacy-back" id="back-btn" href="index.html">← Вернуться</a>
+
+  <script>
+    const ref = document.referrer;
+    const btn = document.getElementById('back-btn');
+    if (ref.includes('game.html')) {
+      btn.href = 'game.html';
+      btn.textContent = '← Вернуться в игру';
+    } else {
+      btn.href = 'index.html';
+      btn.textContent = '← Вернуться на главную';
+    }
+  </script>
   </main>
 </body>
 </html>

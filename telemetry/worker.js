@@ -25,6 +25,30 @@ const ACT_LABELS = {
   act4: 'Акт IV: Язык народов и диалекты',
   act5: 'Акт V: Современность',
 };
+const DASHBOARD_EVENT_LABELS = {
+  page_view: 'Просмотр сайта',
+  game_started: 'Запуск игры',
+  quiz_completed: 'Викторина',
+  location_completed: 'Этап пройден',
+  runtime_error: 'Ошибка',
+};
+const ERROR_LABELS = {
+  Error: 'Ошибка',
+  TypeError: 'Ошибка типа',
+  ReferenceError: 'Ошибка ссылки',
+  SyntaxError: 'Ошибка синтаксиса',
+  RangeError: 'Ошибка диапазона',
+};
+const DIFFICULTY_LABELS = {
+  novice: 'Новичок',
+  explorer: 'Исследователь',
+  keeper: 'Хранитель',
+};
+const DEVICE_LABELS = {
+  desktop: 'Компьютер',
+  mobile: 'Телефон',
+  tablet: 'Планшет',
+};
 const DASHBOARD_KEYBOARD = {
   inline_keyboard: [
     [
@@ -132,165 +156,147 @@ async function sendTelegram(env, text, keyboard = null) {
   }));
 }
 
-const DASHBOARD_WIDTH = 960;
-const DASHBOARD_HEIGHT = 720;
-const DASHBOARD_FONT = {
-  ' ': '00000 00000 00000 00000 00000 00000 00000',
-  '-': '00000 00000 00000 11111 00000 00000 00000',
-  '.': '00000 00000 00000 00000 00000 01100 01100',
-  ':': '00000 01100 01100 00000 01100 01100 00000',
-  '/': '00001 00010 00010 00100 01000 01000 10000',
-  '0': '01110 10001 10011 10101 11001 10001 01110',
-  '1': '00100 01100 00100 00100 00100 00100 01110',
-  '2': '01110 10001 00001 00010 00100 01000 11111',
-  '3': '11110 00001 00001 01110 00001 00001 11110',
-  '4': '00010 00110 01010 10010 11111 00010 00010',
-  '5': '11111 10000 10000 11110 00001 00001 11110',
-  '6': '01110 10000 10000 11110 10001 10001 01110',
-  '7': '11111 00001 00010 00100 01000 01000 01000',
-  '8': '01110 10001 10001 01110 10001 10001 01110',
-  '9': '01110 10001 10001 01111 00001 00001 01110',
-  'A': '01110 10001 10001 11111 10001 10001 10001',
-  'B': '11110 10001 10001 11110 10001 10001 11110',
-  'C': '01110 10001 10000 10000 10000 10001 01110',
-  'D': '11110 10001 10001 10001 10001 10001 11110',
-  'E': '11111 10000 10000 11110 10000 10000 11111',
-  'F': '11111 10000 10000 11110 10000 10000 10000',
-  'G': '01110 10001 10000 10111 10001 10001 01110',
-  'H': '10001 10001 10001 11111 10001 10001 10001',
-  'I': '01110 00100 00100 00100 00100 00100 01110',
-  'J': '00111 00010 00010 00010 00010 10010 01100',
-  'K': '10001 10010 10100 11000 10100 10010 10001',
-  'L': '10000 10000 10000 10000 10000 10000 11111',
-  'M': '10001 11011 10101 10101 10001 10001 10001',
-  'N': '10001 11001 10101 10011 10001 10001 10001',
-  'O': '01110 10001 10001 10001 10001 10001 01110',
-  'P': '11110 10001 10001 11110 10000 10000 10000',
-  'Q': '01110 10001 10001 10001 10101 10010 01101',
-  'R': '11110 10001 10001 11110 10100 10010 10001',
-  'S': '01111 10000 10000 01110 00001 00001 11110',
-  'T': '11111 00100 00100 00100 00100 00100 00100',
-  'U': '10001 10001 10001 10001 10001 10001 01110',
-  'V': '10001 10001 10001 10001 01010 01010 00100',
-  'W': '10001 10001 10001 10101 10101 10101 01010',
-  'X': '10001 10001 01010 00100 01010 10001 10001',
-  'Y': '10001 10001 01010 00100 00100 00100 00100',
-  'Z': '11111 00001 00010 00100 01000 10000 11111',
-};
-
-async function dashboardPng(title, subtitle, rows) {
-  const pixels = new Uint8Array(DASHBOARD_WIDTH * DASHBOARD_HEIGHT * 3);
-  const colors = {
-    background: [12, 18, 32],
-    card: [22, 31, 49],
-    accent: [218, 181, 89],
-    text: [242, 238, 224],
-    muted: [151, 166, 185],
-    bar: [68, 132, 135],
-  };
-  const fillRect = (x, y, width, height, color) => {
-    const left = Math.max(0, Math.floor(x));
-    const top = Math.max(0, Math.floor(y));
-    const right = Math.min(DASHBOARD_WIDTH, Math.ceil(x + width));
-    const bottom = Math.min(DASHBOARD_HEIGHT, Math.ceil(y + height));
-    const row = new Uint8Array((right - left) * 3);
-    for (let px = 0; px < right - left; px += 1) row.set(color, px * 3);
-    for (let py = top; py < bottom; py += 1) {
-      pixels.set(row, (py * DASHBOARD_WIDTH + left) * 3);
-    }
-  };
-  const drawText = (value, x, y, scale, color, maxLength = 48) => {
-    const text = String(value || '').toUpperCase().slice(0, maxLength);
-    let cursor = x;
-    for (const character of text) {
-      const glyph = (DASHBOARD_FONT[character] || DASHBOARD_FONT['.']).replace(/\s/g, '');
-      for (let row = 0; row < 7; row += 1) {
-        for (let column = 0; column < 5; column += 1) {
-          if (glyph[row * 5 + column] === '1') {
-            fillRect(cursor + column * scale, y + row * scale, scale, scale, color);
-          }
-        }
-      }
-      cursor += 6 * scale;
-    }
-  };
-
-  fillRect(0, 0, DASHBOARD_WIDTH, DASHBOARD_HEIGHT, colors.background);
-  fillRect(40, 36, DASHBOARD_WIDTH - 80, 5, colors.accent);
-  drawText('SCV / ADMIN', 52, 62, 3, colors.accent, 24);
-  drawText(title, 52, 108, 5, colors.text, 28);
-  drawText(subtitle, 52, 158, 2, colors.muted, 70);
-
-  const rowHeight = rows.length > 7 ? 42 : 64;
-  const rowGap = rows.length > 7 ? 8 : 10;
-  const startY = 204;
-  rows.slice(0, 9).forEach((row, index) => {
-    const y = startY + index * (rowHeight + rowGap);
-    fillRect(42, y, DASHBOARD_WIDTH - 84, rowHeight, colors.card);
-    fillRect(42, y, 5, rowHeight, colors.accent);
-    drawText(row.label, 65, y + (rowHeight > 50 ? 10 : 4), 2, colors.muted, 52);
-    drawText(row.value, 65, y + (rowHeight > 50 ? 31 : 20), 3, colors.text, 42);
-    if (row.detail) drawText(row.detail, 630, y + (rowHeight > 50 ? 23 : 12), 2, colors.muted, 24);
-    if (Number.isFinite(row.ratio)) {
-      fillRect(630, y + rowHeight - 12, 260, 5, [44, 56, 72, 255]);
-      fillRect(630, y + rowHeight - 12, Math.max(4, Math.min(260, row.ratio * 260)), 5, colors.bar);
-    }
-  });
-  drawText('LIVE ANALYTICS', 52, DASHBOARD_HEIGHT - 32, 2, colors.muted, 30);
-
-  const byteLength = DASHBOARD_WIDTH * 3;
-  const scanlines = new Uint8Array((byteLength + 1) * DASHBOARD_HEIGHT);
-  for (let y = 0; y < DASHBOARD_HEIGHT; y += 1) {
-    const lineStart = y * (byteLength + 1);
-    scanlines[lineStart] = 0;
-    scanlines.set(pixels.subarray(y * byteLength, (y + 1) * byteLength), lineStart + 1);
-  }
-  return new Blob([await encodePng(scanlines, DASHBOARD_WIDTH, DASHBOARD_HEIGHT)], { type: 'image/png' });
+function russianCount(value, forms) {
+  const count = Math.abs(Number(value) || 0);
+  const lastTwo = count % 100;
+  const last = count % 10;
+  const form = lastTwo >= 11 && lastTwo <= 14 ? forms[2]
+    : last === 1 ? forms[0]
+      : last >= 2 && last <= 4 ? forms[1]
+        : forms[2];
+  return `${value} ${form}`;
 }
 
-async function dashboardTemplatePng(env, filename, values) {
+function deviceLabel(deviceType) {
+  return DEVICE_LABELS[deviceType] || 'Неизвестное устройство';
+}
+
+function formatDeviceSummary(devices) {
+  const counts = new Map(devices.results.map(item => [item.device_type || 'unknown', item.visitors]));
+  return [
+    `${russianCount(counts.get('desktop') || 0, ['компьютер', 'компьютера', 'компьютеров'])}`,
+    `${russianCount(counts.get('mobile') || 0, ['телефон', 'телефона', 'телефонов'])}`,
+    `${russianCount(counts.get('tablet') || 0, ['планшет', 'планшета', 'планшетов'])}`,
+    ...(counts.has('unknown') ? [`${russianCount(counts.get('unknown'), ['устройство', 'устройства', 'устройств'])} не определено`] : []),
+  ].join(', ');
+}
+
+async function dashboardTemplatePng(env, filename, values, layout = 'overview', title = '') {
   if (!env.ASSETS) throw new Error('Dashboard assets binding is not configured.');
-  const response = await env.ASSETS.fetch(new Request(`https://assets/dashboard/${filename}`));
+  const [response, fontResponse, fontDataResponse] = await Promise.all([
+    env.ASSETS.fetch(new Request(`https://assets/dashboard/${filename}`)),
+    env.ASSETS.fetch(new Request('https://assets/dashboard/font-atlas.png')),
+    env.ASSETS.fetch(new Request('https://assets/dashboard/font-atlas.json')),
+  ]);
   if (!response.ok) throw new Error(`Dashboard template ${filename} could not be loaded: HTTP ${response.status}.`);
+  if (!fontResponse.ok) throw new Error(`Dashboard font atlas could not be loaded: HTTP ${fontResponse.status}.`);
+  if (!fontDataResponse.ok) throw new Error(`Dashboard font metrics could not be loaded: HTTP ${fontDataResponse.status}.`);
   const template = await decodePng(new Uint8Array(await response.arrayBuffer()));
   if (template.width !== 1448 || template.height !== 1086 || template.channels !== 3) {
     throw new Error(`Dashboard template ${filename} must be 1448x1086 RGB PNG.`);
   }
+  const fontData = await fontDataResponse.json();
+  const fontAtlas = await decodePng(new Uint8Array(await fontResponse.arrayBuffer()));
+  if (fontAtlas.width !== fontData.width || fontAtlas.height !== fontData.height || fontAtlas.channels !== 4) {
+    throw new Error('Dashboard font atlas dimensions or color format are invalid.');
+  }
+  const drawText = (value, x, centerY, maxWidth, maxHeight, color, align = 'left') => {
+    const text = String(value || '').toUpperCase();
+    const glyphs = Array.from(text, character => fontData.glyphs[character] || fontData.glyphs['?']);
+    const textWidth = glyphs.reduce((width, glyph) => width + glyph.advance, 0);
+    const scale = Math.min(maxHeight / (fontData.ascent + fontData.descent), maxWidth / Math.max(1, textWidth));
+    let cursor = align === 'left' ? x : Math.round(x - textWidth * scale / 2);
+    const baseline = centerY + ((fontData.ascent - fontData.descent) / 2) * scale;
 
-  const glyphs = Object.fromEntries(Object.entries(DASHBOARD_FONT)
-    .map(([character, glyph]) => [character, glyph.replace(/\s/g, '')]));
-  const drawNumber = (value, centerX, centerY) => {
-    const text = String(Math.max(0, Math.floor(Number(value) || 0)));
-    const scale = text.length > 3 ? 3 : 4;
-    const charWidth = 6 * scale;
-    let x = Math.round(centerX - (text.length * charWidth - scale) / 2);
-    const y = Math.round(centerY - (7 * scale) / 2);
-    for (const character of text) {
-      const glyph = glyphs[character] || glyphs['0'];
-      for (let row = 0; row < 7; row += 1) {
-        for (let column = 0; column < 5; column += 1) {
-          if (glyph[row * 5 + column] === '1') {
-            fillRasterRect(template, x + column * scale, y + row * scale, scale, scale, [83, 55, 27]);
+    glyphs.forEach(glyph => {
+      if (glyph.width && glyph.height) {
+        const drawX = cursor + glyph.offsetX * scale;
+        const drawY = baseline + glyph.offsetY * scale;
+        const width = Math.max(1, Math.ceil(glyph.width * scale));
+        const height = Math.max(1, Math.ceil(glyph.height * scale));
+        for (let py = 0; py < height; py += 1) {
+          const sampleY = Math.max(0, Math.min(glyph.height - 1, (py + 0.5) * glyph.height / height - 0.5));
+          const sourceY0 = Math.floor(sampleY);
+          const sourceY1 = Math.min(glyph.height - 1, sourceY0 + 1);
+          const weightY = sampleY - sourceY0;
+          const targetY = Math.floor(drawY + py);
+          if (targetY < 0 || targetY >= template.height) continue;
+          for (let px = 0; px < width; px += 1) {
+            const sampleX = Math.max(0, Math.min(glyph.width - 1, (px + 0.5) * glyph.width / width - 0.5));
+            const sourceX0 = Math.floor(sampleX);
+            const sourceX1 = Math.min(glyph.width - 1, sourceX0 + 1);
+            const weightX = sampleX - sourceX0;
+            const targetX = Math.floor(drawX + px);
+            if (targetX < 0 || targetX >= template.width) continue;
+            const alphaAt = (sourceX, sourceY) =>
+              fontAtlas.pixels[((glyph.y + sourceY) * fontAtlas.width + glyph.x + sourceX) * 4 + 3] / 255;
+            const topAlpha = alphaAt(sourceX0, sourceY0) * (1 - weightX) + alphaAt(sourceX1, sourceY0) * weightX;
+            const bottomAlpha = alphaAt(sourceX0, sourceY1) * (1 - weightX) + alphaAt(sourceX1, sourceY1) * weightX;
+            const alpha = topAlpha * (1 - weightY) + bottomAlpha * weightY;
+            if (!alpha) continue;
+            const targetIndex = (targetY * template.width + targetX) * 3;
+            for (let channel = 0; channel < 3; channel += 1) {
+              template.pixels[targetIndex + channel] = Math.round(
+                color[channel] * alpha + template.pixels[targetIndex + channel] * (1 - alpha),
+              );
+            }
           }
         }
       }
-      x += charWidth;
-    }
+      cursor += glyph.advance * scale;
+    });
   };
 
-  const rowCenters = [257, 358, 459, 560, 660, 760, 861];
-  const leftCenters = [300, 300, 300, 300, 300, 300, 300];
-  const rightCenters = [1134, 1134, 1134, 1134, 1134, 1134, 1134];
-  const barLeft = 379;
-  const barWidth = 652;
-  const maxCompleted = Math.max(1, ...values.map(row => row.completed));
-  values.slice(0, rowCenters.length).forEach((row, index) => {
-    const centerY = rowCenters[index];
-    drawNumber(row.completed, leftCenters[index], centerY);
-    drawNumber(row.online, rightCenters[index], centerY);
-    const width = row.completed ? Math.max(5, Math.round((row.completed / maxCompleted) * barWidth)) : 0;
-    if (width) fillRasterRect(template, barLeft, centerY + 10, width, 8, [161, 104, 41]);
-  });
+  if (layout === 'overview') {
+    const rowCenters = [259, 378, 500, 623, 745, 868];
+    const labelColor = [40, 26, 14];
+    const valueColor = [40, 26, 14];
+    drawText(title, 724, 126, 1000, 62, [255, 221, 158], 'center');
+    values.slice(0, rowCenters.length).forEach((row, index) => {
+      drawText(row.label, 330, rowCenters[index] - (row.detail ? 12 : 0), 600, row.detail ? 31 : 42, labelColor);
+      if (row.detail) drawText(row.detail, 330, rowCenters[index] + 21, 600, 22, [77, 58, 39]);
+      drawText(row.value, 1000, rowCenters[index], 210, 48, valueColor, 'center');
+    });
+    return new Blob([await encodePng(encodeRaster(template), template.width, template.height)], { type: 'image/png' });
+  }
+
+  if (layout === 'users') {
+    const rowCenters = [298, 446, 595, 744, 890];
+    drawText(title, 724, 148, 1040, 58, [255, 221, 158], 'center');
+    values.slice(0, rowCenters.length).forEach((row, index) => {
+      const centerY = rowCenters[index];
+      drawText(String(index + 1), 277, centerY, 55, 48, [72, 47, 27], 'center');
+      drawText(row.label, 390, centerY - 18, 820, 34, [40, 26, 14]);
+      drawText(row.detail, 390, centerY + 23, 820, 25, [77, 58, 39]);
+    });
+  } else if (layout === 'player') {
+    const tileCenters = [
+      [470, 311], [980, 311], [470, 456], [980, 456], [470, 601], [980, 601],
+    ];
+    drawText(title, 725, 132, 800, 52, [68, 46, 26], 'center');
+    drawText(values.subtitle, 725, 176, 850, 32, [68, 46, 26], 'center');
+    values.stats.forEach((stat, index) => {
+      const [centerX, centerY] = tileCenters[index];
+      drawText(stat.label, centerX, centerY - 17, 345, 26, [68, 46, 26], 'center');
+      drawText(stat.value, centerX, centerY + 20, 345, 40, [40, 26, 14], 'center');
+    });
+    const eventCenters = [730, 798, 866, 934, 1002];
+    values.events.forEach((event, index) => {
+      drawText(event, 300, eventCenters[index], 1050, 29, [40, 26, 14]);
+    });
+  } else if (layout === 'stages') {
+    drawText(title, 724, 126, 1000, 58, [255, 221, 158], 'center');
+    const rowCenters = [257, 358, 459, 560, 660, 760, 861];
+    const maxCompleted = Math.max(1, ...values.map(row => row.completed));
+    values.slice(0, rowCenters.length).forEach((row, index) => {
+      const centerY = rowCenters[index];
+      drawText(String(row.completed), 300, centerY, 90, 40, [40, 26, 14], 'center');
+      drawText(row.label, 705, centerY - 18, 640, 28, [40, 26, 14], 'center');
+      drawText(String(row.online), 1134, centerY, 90, 40, [40, 26, 14], 'center');
+      const width = row.completed ? Math.max(5, Math.round((row.completed / maxCompleted) * 652)) : 0;
+      if (width) fillRasterRect(template, 379, centerY + 17, width, 7, [161, 104, 41]);
+    });
+  }
 
   return new Blob([await encodePng(encodeRaster(template), template.width, template.height)], { type: 'image/png' });
 }
@@ -508,7 +514,7 @@ async function deliverGameStartNotification(env, sessionId) {
   try {
     sent = await sendTelegram(
       env,
-      `Новый запуск игры\nИгрок: ${notification.visitor_id.slice(0, 8)}\nСложность: ${notification.difficulty}\nВремя UTC: ${now}`,
+      `Новый запуск игры\nИгрок: ${notification.visitor_id.slice(0, 8)}\nСложность: ${DIFFICULTY_LABELS[notification.difficulty] || 'не выбрана'}\nВремя UTC: ${now}`,
     );
   } catch (error) {
     console.error('Telegram notification request failed:', error instanceof Error ? error.name : 'unknown error');
@@ -682,15 +688,15 @@ async function handleForget(request, env) {
 
 function formatStage(actId, locationId) {
   if (!locationId) return 'не выбран';
-  const label = STAGE_LABELS[locationId] || locationId;
+  const label = STAGE_LABELS[locationId] || 'Другое место';
   if (actId === 'prologue' || locationId === 'prologue') return label;
-  return `${ACT_LABELS[actId] || actId || 'Акт не указан'} · ${label}`;
+  return `${ACT_LABELS[actId] || 'Акт не указан'} · ${label}`;
 }
 
 function dashboardKeyboard(view, page = 0, users = [], hasNextPage = false, visitorId = null, eventPage = 0, hasNextEvents = false) {
   if (view === 'users') {
     const userButtons = users.map(user => [{
-      text: `${user.device_type === 'mobile' ? '📱' : user.device_type === 'tablet' ? '📟' : '🖥'} ${user.platform_name || 'Устройство'} · ${user.browser_name || 'браузер'} · ${user.visitor_id.slice(0, 8)}`.slice(0, 60),
+      text: `${user.device_type === 'mobile' ? '📱' : user.device_type === 'tablet' ? '📟' : '🖥'} ${deviceLabel(user.device_type)} · ${user.browser_name || 'браузер'} · ${user.visitor_id.slice(0, 8)}`.slice(0, 60),
       callback_data: `scv:user:${user.visitor_id}:${page}:0`,
     }]);
     const navigation = [];
@@ -730,8 +736,8 @@ function dashboardKeyboard(view, page = 0, users = [], hasNextPage = false, visi
 }
 
 async function renderDashboard(env, view, page = 0, visitorId = null, eventPage = 0) {
-  let title = 'OVERVIEW';
-  let subtitle = 'ANONYMOUS WEBSITE AND GAME STATISTICS';
+  let title = 'Сводка';
+  let subtitle = 'Статистика сайта и игры';
   let caption = '';
   let rows = [];
   let png = null;
@@ -750,18 +756,19 @@ async function renderDashboard(env, view, page = 0, visitorId = null, eventPage 
       env.DB.prepare(
         `SELECT visitor_id, current_page, current_act, current_location, difficulty
          FROM sessions WHERE datetime(last_seen) >= datetime('now', '-2 minutes')
-         ORDER BY last_seen DESC LIMIT 9`,
+         ORDER BY last_seen DESC LIMIT 6`,
       ).all(),
     ]);
-    title = 'ONLINE NOW';
-    subtitle = 'VISIBLE BROWSER SESSIONS / LAST 2 MINUTES';
-    caption = `🟢 Сейчас онлайн: ${active.players} браузеров, ${active.sessions} вкладок; в игре: ${active.in_game}. Активность оценивается по сигналам видимых вкладок.`;
+    title = 'Сейчас онлайн';
+    subtitle = 'Активность за последние две минуты';
+    caption = `🟢 Сейчас онлайн ${russianCount(active.players, ['игрок', 'игрока', 'игроков'])} в ${russianCount(active.sessions, ['вкладке', 'вкладках', 'вкладках'])}; в игре ${russianCount(active.in_game, ['игрок', 'игрока', 'игроков'])}. Активность определяется по сигналам открытых вкладок.`;
     rows = results.map(session => ({
-      label: `VISITOR ${session.visitor_id.slice(0, 8)}`,
-      value: session.current_page === 'game' ? 'IN GAME' : 'ON SITE',
-      detail: `${session.current_location || session.current_act || 'NO STAGE'} ${session.difficulty || ''}`,
+      label: `Игрок ${session.visitor_id.slice(0, 8)}`,
+      value: session.current_page === 'game' ? 'В игре' : 'На сайте',
+      detail: `${STAGE_LABELS[session.current_location] || 'Этап не выбран'} · ${DIFFICULTY_LABELS[session.difficulty] || ''}`,
     }));
-    if (!rows.length) rows = [{ label: 'ONLINE BROWSERS', value: String(active.players), detail: 'NO RECENT SESSIONS' }];
+    if (!rows.length) rows = [{ label: 'Сейчас никто не играет', value: String(active.players), detail: 'Нет активных вкладок' }];
+    png = await dashboardTemplatePng(env, 'overview.png', rows, 'overview', title);
   } else if (view === 'stages') {
     const [active, completed] = await Promise.all([
       env.DB.prepare(
@@ -791,8 +798,8 @@ async function renderDashboard(env, view, page = 0, visitorId = null, eventPage 
       completed: group.ids.reduce((sum, id) => sum + (completedByStage.get(id) || 0), 0),
       online: group.ids.reduce((sum, id) => sum + (activeByStage.get(id) || 0), 0),
     }));
-    title = 'GAME STAGES';
-    subtitle = '7 STAGES / COMPLETED VISITS AND CURRENT PLAYERS';
+    title = 'Этапы игры';
+    subtitle = 'Завершения и игроки онлайн';
     caption = [
       '🗺 Этапы игры: завершения — зарегистрированные прохождения; онлайн — браузеры, у которых сейчас открыт этап.',
       ...stageStats.map(stage =>
@@ -801,11 +808,11 @@ async function renderDashboard(env, view, page = 0, visitorId = null, eventPage 
       'В шаблоне семь строк: Пролог и Скрипторий объединены в одну.',
     ].join('\n');
     rows = stageStats.map(stage => ({
-      label: stage.label.replace(/[^a-z0-9 ]/gi, ' ').replace(/\s+/g, ' ').trim(),
-      value: `DONE ${stage.completed}`,
-      detail: `NOW ${stage.online}`,
+      label: stage.label,
+      value: `Пройдено: ${stage.completed}`,
+      detail: `Онлайн: ${stage.online}`,
     }));
-    png = await dashboardTemplatePng(env, 'analytics.png', stageStats);
+    png = await dashboardTemplatePng(env, 'analytics.png', stageStats, 'stages', title);
   } else if (view === 'difficulty') {
     const [{ results }, active] = await Promise.all([
       env.DB.prepare(
@@ -818,55 +825,64 @@ async function renderDashboard(env, view, page = 0, visitorId = null, eventPage 
          GROUP BY difficulty`,
       ).all(),
     ]);
-    const labels = {
-      novice: 'NOVICE / FIRST VOYAGER',
-      explorer: 'EXPLORER',
-      keeper: 'KEEPER',
-    };
     const total = new Map(results.map(row => [row.difficulty, row.sessions]));
     const online = new Map(active.results.map(row => [row.difficulty, row.players]));
-    title = 'DIFFICULTY';
-    subtitle = 'GAME STARTS AND ACTIVE PLAYERS';
+    title = 'Уровни сложности';
+    subtitle = 'Запуски игры и игроки онлайн';
     caption = '🎚 Выбор сложности: число запусков и число игроков, которые сейчас находятся в игре на этом уровне.';
-    rows = Object.entries(labels).map(([id, label]) => ({
+    rows = Object.entries(DIFFICULTY_LABELS).map(([id, label]) => ({
       label,
-      value: `STARTS ${total.get(id) || 0}`,
-      detail: `ONLINE ${online.get(id) || 0}`,
+      value: `Запусков: ${total.get(id) || 0}`,
+      detail: `Онлайн: ${online.get(id) || 0}`,
     }));
+    png = await dashboardTemplatePng(env, 'overview.png', rows, 'overview', title);
   } else if (view === 'users') {
     const total = await env.DB.prepare('SELECT COUNT(*) AS count FROM visitors').first();
     const pages = Math.max(1, Math.ceil(total.count / 5));
     currentPage = Math.max(0, Math.min(Number.isInteger(page) ? page : 0, pages - 1));
     hasNextPage = currentPage + 1 < pages;
     const { results } = await env.DB.prepare(
-      `SELECT visitor_id, device_type, platform_name, browser_name, last_seen,
+      `SELECT visitor_id, device_type, browser_name, last_seen,
        game_starts, locations_completed
        FROM visitors ORDER BY last_seen DESC LIMIT 5 OFFSET ?`,
     ).bind(currentPage * 5).all();
     users = results;
-    title = `PLAYERS ${currentPage + 1} OF ${pages}`;
-    subtitle = `ANONYMOUS DEVICE PROFILES / ${total.count} TOTAL`;
+    title = `Игроки · страница ${currentPage + 1} из ${pages}`;
+    subtitle = `Всего ${russianCount(total.count, ['игрок', 'игрока', 'игроков'])}`;
     caption = total.count
       ? `👥 Браузеры ${currentPage * 5 + 1}–${currentPage * 5 + results.length} из ${total.count}. Нажми кнопку под изображением, чтобы открыть подробности игрока. Данные сортируются по последней активности.`
       : '👥 Пока нет зарегистрированных браузеров.';
     rows = results.map(user => ({
-      label: `${user.device_type || 'DEVICE'} ${user.platform_name || 'UNKNOWN'}`,
-      value: `VISITOR ${user.visitor_id.slice(0, 8)}`,
-      detail: `${user.browser_name || 'BROWSER'} GAMES ${user.game_starts} STAGES ${user.locations_completed}`,
+      label: `${deviceLabel(user.device_type)} · ${user.browser_name || 'браузер'}`,
+      value: user.visitor_id.slice(0, 8),
+      detail: `Запусков: ${user.game_starts} · этапов пройдено: ${user.locations_completed}`,
     }));
-    if (!rows.length) rows = [{ label: 'NO VISITORS YET', value: '0', detail: 'WAITING FOR FIRST VISIT' }];
+    if (!rows.length) rows = [{ label: 'Пока нет игроков', value: '0', detail: 'Ожидаем первый визит' }];
+    png = await dashboardTemplatePng(env, 'users.png', rows, 'users', title);
   } else if (view === 'user') {
     const user = await env.DB.prepare(
-      `SELECT visitor_id, first_seen, last_seen, device_type, platform_name,
+      `SELECT visitor_id, first_seen, last_seen, device_type,
        browser_name, page_views, game_starts, quizzes_completed,
        locations_completed, runtime_errors, max_score
        FROM visitors WHERE visitor_id = ?`,
     ).bind(visitorId).first();
     if (!user) {
-      title = 'PLAYER NOT FOUND';
-      subtitle = 'THIS BROWSER PROFILE IS NO LONGER AVAILABLE';
+      title = 'Игрок не найден';
+      subtitle = 'Профиль браузера больше недоступен';
       caption = 'Профиль игрока не найден или уже удалён.';
-      rows = [{ label: 'VISITOR', value: visitorId.slice(0, 8), detail: 'NO DATA' }];
+      rows = [{ label: 'ИГРОК', value: visitorId.slice(0, 8), detail: 'Нет данных' }];
+      png = await dashboardTemplatePng(env, 'player.png', {
+        subtitle: 'Профиль недоступен',
+        stats: [
+          { label: 'Страницы', value: '0' },
+          { label: 'Запуски', value: '0' },
+          { label: 'Викторины', value: '0' },
+          { label: 'Этапы', value: '0' },
+          { label: 'Ошибки', value: '0' },
+          { label: 'Лучший счёт', value: '0' },
+        ],
+        events: ['Нет данных'],
+      }, 'player', title);
     } else {
       const [sessions, eventCount] = await Promise.all([
         env.DB.prepare(
@@ -885,52 +901,62 @@ async function renderDashboard(env, view, page = 0, visitorId = null, eventPage 
         `SELECT event_type, created_at, metadata_json FROM events
          WHERE visitor_id = ? ORDER BY created_at DESC LIMIT 5 OFFSET ?`,
       ).bind(visitorId, eventPage * 5).all();
-      title = `PLAYER ${visitorId.slice(0, 8)}`;
-      subtitle = `${user.device_type || 'DEVICE'} / ${user.platform_name || 'UNKNOWN'} / ${user.browser_name || 'BROWSER'}`;
+      title = `Игрок ${visitorId.slice(0, 8)}`;
+      subtitle = `${deviceLabel(user.device_type)} · ${user.browser_name || 'браузер'}`;
       caption = [
-        `👤 Игрок ${visitorId.slice(0, 8)} · ${user.device_type || 'устройство не определено'} · ${user.platform_name || 'платформа неизвестна'} · ${user.browser_name || 'браузер неизвестен'}`,
+        `👤 Игрок ${visitorId.slice(0, 8)} · ${deviceLabel(user.device_type)} · ${user.browser_name || 'браузер не определён'}.`,
         `Первый визит: ${user.first_seen} UTC · последняя активность: ${user.last_seen} UTC.`,
-        `Страниц ${user.page_views}, запусков ${user.game_starts}, заданий ${user.quizzes_completed}, этапов ${user.locations_completed}, ошибок ${user.runtime_errors}, лучший счёт ${user.max_score}.`,
-        `Страница истории ${eventPage + 1}/${eventPages}. Последние сессии: ${sessions.results.map(session => `${session.difficulty || 'сложность не выбрана'} / ${formatStage(session.current_act, session.current_location)} / ${session.last_seen} UTC`).join('; ') || 'нет'}.`,
+        `${russianCount(user.page_views, ['просмотр страницы', 'просмотра страниц', 'просмотров страниц'])}, ${russianCount(user.game_starts, ['запуск игры', 'запуска игры', 'запусков игры'])}, ${russianCount(user.quizzes_completed, ['викторина', 'викторины', 'викторин'])}, ${russianCount(user.locations_completed, ['пройденный этап', 'пройденных этапа', 'пройденных этапов'])}, ${russianCount(user.runtime_errors, ['ошибка', 'ошибки', 'ошибок'])}, лучший счёт: ${user.max_score}.`,
+        `История: страница ${eventPage + 1} из ${eventPages}. Последние сессии: ${sessions.results.map(session => `${DIFFICULTY_LABELS[session.difficulty] || 'сложность не выбрана'} · ${formatStage(session.current_act, session.current_location)} · ${session.last_seen} UTC`).join('; ') || 'нет'}.`,
       ].join('\n');
-      rows = [
-        { label: 'PAGE VIEWS / GAME STARTS', value: `${user.page_views} / ${user.game_starts}` },
-        { label: 'QUIZZES / COMPLETED STAGES', value: `${user.quizzes_completed} / ${user.locations_completed}` },
-        { label: 'RUNTIME ERRORS / BEST SCORE', value: `${user.runtime_errors} / ${user.max_score}` },
-        ...events.results.map(event => {
-          let metadata = {};
-          try {
-            metadata = JSON.parse(event.metadata_json);
-          } catch (error) {
-            console.warn('Skipping malformed event metadata in player dashboard:', error instanceof Error ? error.name : 'parse error');
-          }
-          const detail = metadata.location_id || metadata.quiz_id || metadata.difficulty || metadata.error_type || '';
-          return {
-            label: event.event_type.replace(/_/g, ' '),
-            value: detail || event.created_at.slice(0, 16),
-            detail: event.created_at.slice(0, 16),
-          };
-        }),
+      const eventRows = events.results.map(event => {
+        let metadata = {};
+        try {
+          metadata = JSON.parse(event.metadata_json);
+        } catch (error) {
+          console.warn('Skipping malformed event metadata in player dashboard:', error instanceof Error ? error.name : 'parse error');
+        }
+        const detail = STAGE_LABELS[metadata.location_id]
+          || DIFFICULTY_LABELS[metadata.difficulty]
+          || (metadata.quiz_id ? 'Задание' : '')
+          || ERROR_LABELS[metadata.error_type]
+          || '';
+        return `${DASHBOARD_EVENT_LABELS[event.event_type] || 'Событие'} · ${detail} · ${event.created_at.slice(0, 16)}`;
+      });
+      const playerStats = [
+        { label: 'Просмотры', value: String(user.page_views) },
+        { label: 'Запуски игры', value: String(user.game_starts) },
+        { label: 'Викторины', value: String(user.quizzes_completed) },
+        { label: 'Этапы пройдены', value: String(user.locations_completed) },
+        { label: 'Ошибки', value: String(user.runtime_errors) },
+        { label: 'Лучший счёт', value: String(user.max_score) },
       ];
+      rows = playerStats;
+      png = await dashboardTemplatePng(env, 'player.png', {
+        subtitle,
+        stats: playerStats,
+        events: eventRows.length ? eventRows : ['Событий пока нет'],
+      }, 'player', title);
     }
   } else if (view === 'errors') {
     const { results } = await env.DB.prepare(
       `SELECT visitor_id, created_at, metadata_json
        FROM events WHERE event_type = 'runtime_error'
-       ORDER BY created_at DESC LIMIT 9`,
+       ORDER BY created_at DESC LIMIT 6`,
     ).all();
-    title = 'RECENT ERRORS';
-    subtitle = 'ERROR TYPE ONLY / NO TEXT OR STACK TRACE STORED';
+    title = 'Последние ошибки';
+    subtitle = 'Сохраняются только тип и дата ошибки';
     caption = results.length ? '⚠️ Последние технические ошибки: сохраняются только тип ошибки, дата и анонимный ID браузера.' : 'Ошибок пока нет.';
     rows = results.map(row => {
       const metadata = JSON.parse(row.metadata_json);
       return {
-        label: `VISITOR ${row.visitor_id.slice(0, 8)}`,
-        value: metadata.error_type,
+        label: `Игрок ${row.visitor_id.slice(0, 8)}`,
+        value: ERROR_LABELS[metadata.error_type] || 'Ошибка',
         detail: row.created_at.slice(0, 16),
       };
     });
-    if (!rows.length) rows = [{ label: 'ERRORS', value: '0', detail: 'NO RECENT ERRORS' }];
+    if (!rows.length) rows = [{ label: 'Ошибок нет', value: '0', detail: 'Новых ошибок не было' }];
+    png = await dashboardTemplatePng(env, 'overview.png', rows, 'overview', title);
   } else {
     const [totals, sessions, active, recent, recentStarts, recentErrors, devices] = await Promise.all([
       env.DB.prepare(
@@ -958,31 +984,34 @@ async function renderDashboard(env, view, page = 0, visitorId = null, eventPage 
          WHERE event_type = 'runtime_error' AND datetime(created_at) >= datetime('now', '-1 day')`,
       ).first(),
       env.DB.prepare(
-        `SELECT device_type, platform_name, browser_name, COUNT(*) AS visitors
-         FROM visitors WHERE device_type IS NOT NULL OR platform_name IS NOT NULL OR browser_name IS NOT NULL
-         GROUP BY device_type, platform_name, browser_name ORDER BY visitors DESC LIMIT 3`,
+        `SELECT device_type, COUNT(*) AS visitors
+         FROM visitors GROUP BY device_type ORDER BY visitors DESC`,
       ).all(),
     ]);
-    title = 'SITE OVERVIEW';
-    subtitle = 'CURRENT TRAFFIC / LIFETIME GAMEPLAY';
+    title = 'Сводка сайта';
+    subtitle = 'Текущая активность и общая статистика';
     caption = [
-      `📊 «Слово через века» — ${active.players} браузеров онлайн (${active.in_game} в игре), ${active.sessions} активных вкладок.`,
-      `За 24 часа: ${recent.users} браузеров, ${recentStarts.count} запусков, ${recentErrors.count} ошибок.`,
-      `Всего: ${totals.users} браузеров, ${totals.page_views} просмотров, ${sessions.count} сессий, ${totals.game_starts} запусков, ${totals.quizzes} заданий, ${totals.locations} этапов.`,
-      `Устройства: ${devices.results.map(item => `${item.device_type || 'неизвестно'} / ${item.platform_name || 'неизвестно'} / ${item.browser_name || 'неизвестно'} (${item.visitors})`).join('; ') || 'данных пока нет'}.`,
+      `📊 «Слово через века»: онлайн ${russianCount(active.players, ['браузер', 'браузера', 'браузеров'])} (${active.in_game} в игре), ${russianCount(active.sessions, ['активная вкладка', 'активные вкладки', 'активных вкладок'])}.`,
+      `За 24 часа: ${russianCount(recent.users, ['посетитель', 'посетителя', 'посетителей'])}, ${russianCount(recentStarts.count, ['запуск игры', 'запуска игры', 'запусков игры'])}, ${russianCount(recentErrors.count, ['ошибка', 'ошибки', 'ошибок'])}.`,
+      `Всего: ${russianCount(totals.users, ['браузер', 'браузера', 'браузеров'])}, ${russianCount(totals.page_views, ['просмотр', 'просмотра', 'просмотров'])}, ${russianCount(sessions.count, ['сессия', 'сессии', 'сессий'])}, ${russianCount(totals.game_starts, ['запуск игры', 'запуска игры', 'запусков игры'])}, ${russianCount(totals.quizzes, ['викторина', 'викторины', 'викторин'])}, ${russianCount(totals.locations, ['пройденный этап', 'пройденных этапа', 'пройденных этапов'])}.`,
+      `Устройства: ${formatDeviceSummary(devices)}.`,
     ].join('\n');
     rows = [
-      { label: 'ONLINE BROWSERS / IN GAME', value: `${active.players} / ${active.in_game}`, detail: `${active.sessions} TABS` },
-      { label: 'VISITORS 24H / TOTAL', value: `${recent.users} / ${totals.users}` },
-      { label: 'PAGE VIEWS / SESSIONS', value: `${totals.page_views} / ${sessions.count}` },
-      { label: 'GAME STARTS / LAST 24H', value: `${totals.game_starts} / ${recentStarts.count}` },
-      { label: 'QUIZZES / COMPLETED STAGES', value: `${totals.quizzes} / ${totals.locations}` },
-      { label: 'RUNTIME ERRORS 24H', value: String(recentErrors.count) },
-      ...devices.results.map(item => ({
-        label: `${item.device_type || 'DEVICE'} ${item.platform_name || 'UNKNOWN'}`,
-        value: `${item.browser_name || 'BROWSER'} ${item.visitors}`,
-      })),
+      { label: 'Онлайн / в игре', value: `${active.players} / ${active.in_game}`, detail: russianCount(active.sessions, ['вкладка', 'вкладки', 'вкладок']) },
+      { label: 'Посетители за сутки / всего', value: `${recent.users} / ${totals.users}` },
+      { label: 'Просмотры / сессии', value: `${totals.page_views} / ${sessions.count}` },
+      { label: 'Запуски за сутки / всего', value: `${recentStarts.count} / ${totals.game_starts}` },
+      { label: 'Викторины / пройдено этапов', value: `${totals.quizzes} / ${totals.locations}` },
+      { label: 'Ошибки за сутки', value: String(recentErrors.count) },
     ];
+    png = await dashboardTemplatePng(env, 'overview.png', [
+      { label: 'Онлайн / в игре', value: `${active.players} / ${active.in_game}`, detail: russianCount(active.sessions, ['вкладка', 'вкладки', 'вкладок']) },
+      { label: 'Посетители за сутки / всего', value: `${recent.users} / ${totals.users}` },
+      { label: 'Просмотры / сессии', value: `${totals.page_views} / ${sessions.count}` },
+      { label: 'Запуски за сутки / всего', value: `${recentStarts.count} / ${totals.game_starts}` },
+      { label: 'Викторины / пройдено этапов', value: `${totals.quizzes} / ${totals.locations}` },
+      { label: 'Ошибки за сутки', value: String(recentErrors.count) },
+    ], 'overview', title);
   }
 
   const keyboard = dashboardKeyboard(
@@ -994,8 +1023,9 @@ async function renderDashboard(env, view, page = 0, visitorId = null, eventPage 
     eventPage,
     hasNextEvents,
   );
+  if (!png) throw new Error(`Dashboard view "${view}" did not render a template image.`);
   return {
-    png: png || await dashboardPng(title, subtitle, rows),
+    png,
     caption,
     keyboard,
     page: currentPage,
